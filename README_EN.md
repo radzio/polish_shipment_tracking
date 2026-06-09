@@ -28,6 +28,7 @@ Home Assistant integration for tracking shipments from popular carriers in Polan
 - DHL
 - DPD
 - Pocztex
+- GLS
 
 > [!WARNING]
 > The integration relies on unofficial APIs used by carrier apps/services. These APIs may change without notice.
@@ -114,6 +115,8 @@ Carrier-specific status names are mapped to a common set, for example:
 - waiting_for_pickup
 - delivered
 - exception
+- cancelled
+- returned
 - unknown
 
 > [!NOTE]

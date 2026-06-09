@@ -89,13 +89,26 @@ async def async_setup_entry(
         """Add new sensors and remove old ones."""
         nonlocal has_initialized
         current_data = coordinator.data or []
+        _LOGGER.debug(
+            "async_update_parcels [%s]: coordinator.data has %d items, known_parcels=%s",
+            coordinator.courier,
+            len(current_data),
+            coordinator.known_parcels,
+        )
         new_entities = []
         registry = async_get_entity_registry(hass)
         
         current_ids = set()
         for parcel in current_data:
             pid = get_parcel_id(parcel, coordinator.courier)
-            if not pid or is_delivered(parcel, coordinator.courier):
+            delivered = is_delivered(parcel, coordinator.courier)
+            _LOGGER.debug(
+                "async_update_parcels [%s]: parcel pid=%s delivered=%s",
+                coordinator.courier,
+                pid,
+                delivered,
+            )
+            if not pid or delivered:
                 continue
             
             current_ids.add(pid)
@@ -230,6 +243,8 @@ class ShipmentSensor(CoordinatorEntity[ShipmentCoordinator], SensorEntity):
             self._add_dpd_attributes(attrs)
         elif self._courier == "pocztex":
             self._add_pocztex_attributes(attrs)
+        elif self._courier == "gls":
+            self._add_gls_attributes(attrs)
             
         return attrs
 
@@ -279,6 +294,64 @@ class ShipmentSensor(CoordinatorEntity[ShipmentCoordinator], SensorEntity):
         history = self.parcel_data.get("history")
         if isinstance(history, list):
             attrs["history"] = history
+
+    def _add_gls_attributes(self, attrs: dict) -> None:
+        """Add GLS specific attributes."""
+        data = self.parcel_data
+        tracking_shipment = data.get("trackingShipment")
+        if isinstance(tracking_shipment, dict):
+            data = tracking_shipment
+
+        attrs["tracking_uid"] = data.get("trackingUid")
+        attrs["shipment_no"] = data.get("shipmentNo")
+        attrs["tracking_id"] = data.get("trackingId")
+        attrs["state_date"] = data.get("stateDate")
+        attrs["package_amount"] = data.get("packageAmount")
+        attrs["weight"] = data.get("weight")
+        attrs["pin"] = data.get("pin")
+        attrs["reference"] = data.get("reference")
+        attrs["courier_phone_number"] = data.get("courierPhoneNumber")
+        attrs["delivery_method"] = data.get("deliveryMethod")
+        attrs["payment_flag"] = data.get("paymentFlag")
+        attrs["delivery_flag"] = data.get("deliveryFlag")
+
+        sender = data.get("sender")
+        if isinstance(sender, dict):
+            attrs["sender_name"] = sender.get("shipmentName")
+        elif data.get("senderName") is not None:
+            attrs["sender_name"] = data.get("senderName")
+
+        receiver = data.get("receiver")
+        if isinstance(receiver, dict):
+            attrs["receiver_name"] = receiver.get("shipmentName")
+        elif data.get("receiverName") is not None:
+            attrs["receiver_name"] = data.get("receiverName")
+
+        parcel_shop = data.get("parcelShop")
+        if isinstance(parcel_shop, dict):
+            attrs["parcel_shop_name"] = parcel_shop.get("shipmentName")
+            attrs["parcel_shop_type"] = parcel_shop.get("parcelShopType")
+            address = [
+                parcel_shop.get("street"),
+                parcel_shop.get("postalCode"),
+                parcel_shop.get("city"),
+            ]
+            attrs["location"] = ", ".join(str(part) for part in address if part)
+        elif data.get("parcelShopType") is not None:
+            attrs["parcel_shop_type"] = data.get("parcelShopType")
+
+        packages = self.parcel_data.get("trackingShipmentPackages") or data.get("shipmentPackages")
+        if isinstance(packages, list):
+            attrs["packages"] = packages
+            attrs["package_count"] = len(packages)
+            history = []
+            for pkg in packages:
+                if isinstance(pkg, dict):
+                    statuses = pkg.get("packageStatuses")
+                    if isinstance(statuses, list):
+                        history.extend(statuses)
+            if history:
+                attrs["history"] = history
 
     @callback
     def _handle_coordinator_update(self) -> None:

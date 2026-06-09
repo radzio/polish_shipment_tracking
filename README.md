@@ -28,6 +28,7 @@ Integracja dla Home Assistant do śledzenia przesyłek u popularnych przewoźnik
 - DHL
 - DPD
 - Pocztex
+- GLS
 
 > [!WARNING]
 > Integracja korzysta z nieoficjalnych API aplikacji/serwisów przewoźników. Te API mogą ulec zmianie bez uprzedzenia.
@@ -117,6 +118,8 @@ Różne nazwy statusów przewoźników są mapowane do wspólnego zestawu. Przyk
 - waiting_for_pickup
 - delivered
 - exception
+- cancelled
+- returned
 - unknown
 
 > [!NOTE]

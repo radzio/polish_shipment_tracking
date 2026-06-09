@@ -1,3 +1,4 @@
+import aiohttp
 import voluptuous as vol
 import uuid
 import json
@@ -16,12 +17,15 @@ from .const import (
     CONF_TOKEN_EXPIRES_AT,
     CONF_REFRESH_EXPIRES_AT,
     CONF_DEVICE_UID,
+    CONF_ID_TOKEN,
+    CONF_SESSION_ID,
+    CONF_SESSION_REGISTERED,
 )
 from .api_helpers import normalize_phone
 
 _LOGGER = logging.getLogger(__name__)
 
-COURIERS = ["inpost", "dpd", "dhl", "pocztex"]
+COURIERS = ["inpost", "dpd", "dhl", "pocztex", "gls"]
 
 class ShipmentTrackingConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     VERSION = 1
@@ -40,6 +44,8 @@ class ShipmentTrackingConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             self.courier = user_input[CONF_COURIER]
             if self.courier == "pocztex":
                 return await self.async_step_pocztex_credentials()
+            if self.courier == "gls":
+                return await self.async_step_gls_credentials()
             return await self.async_step_phone()
 
         return self.async_show_form(
@@ -122,6 +128,46 @@ class ShipmentTrackingConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             step_id="pocztex_credentials",
             data_schema=vol.Schema({
                 vol.Required(CONF_EMAIL): str,
+                vol.Required(CONF_PASSWORD): str,
+            }),
+            errors=errors,
+        )
+
+    async def async_step_gls_credentials(self, user_input=None):
+        errors = {}
+
+        if user_input is not None:
+            raw_phone = str(user_input[CONF_PHONE])
+            phone = normalize_phone(raw_phone)
+            password = str(user_input[CONF_PASSWORD])
+
+            try:
+                from .api_gls import GlsApi
+                async with aiohttp.ClientSession(cookie_jar=aiohttp.DummyCookieJar()) as gls_session:
+                    api = GlsApi(gls_session, session_id=str(uuid.uuid4()))
+                    data = await api.login(phone, password)
+
+                return self.async_create_entry(
+                    title=f"{self.courier.upper()} ({phone})",
+                    data={
+                        CONF_COURIER: self.courier,
+                        CONF_PHONE: phone,
+                        CONF_TOKEN: data.get("access_token"),
+                        CONF_REFRESH_TOKEN: data.get("refresh_token"),
+                        CONF_ID_TOKEN: data.get("id_token"),
+                        CONF_TOKEN_EXPIRES_AT: data.get("token_expires_at"),
+                        CONF_SESSION_ID: data.get("session_id"),
+                        CONF_SESSION_REGISTERED: data.get("session_registered"),
+                    }
+                )
+            except Exception as e:
+                _LOGGER.exception("GLS login failed: %s", e)
+                errors["base"] = "auth_error"
+
+        return self.async_show_form(
+            step_id="gls_credentials",
+            data_schema=vol.Schema({
+                vol.Required(CONF_PHONE): str,
                 vol.Required(CONF_PASSWORD): str,
             }),
             errors=errors,

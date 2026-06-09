@@ -40,6 +40,12 @@ const CARD_TRANSLATIONS = {
     "dialog.show_entity": "Show entity",
     "dialog.refresh_shipment": "Refresh shipment",
     "dialog.manage_shipment": "Manage shipment",
+    "dialog.live_tracking": "Track courier live",
+    "dialog.weight": "Weight",
+    "dialog.package_count": "Packages",
+    "dialog.courier_phone": "Courier phone",
+    "dialog.delivery_method": "Delivery method",
+    "dialog.parcel_shop_type": "Point type",
     "dialog.close": "Close",
     "card.refresh_all": "Refresh all shipments",
     "dpd.DELIVERED": "Delivered",
@@ -47,7 +53,11 @@ const CARD_TRANSLATIONS = {
     "dpd.RECEIVED_IN_DEPOT": "Received in depot",
     "dpd.IN_TRANSPORT": "In transit",
     "dpd.RECEIVED_FROM_SENDER": "Received from sender",
-    "dpd.READY_TO_SEND": "Ready to send"
+    "dpd.READY_TO_SEND": "Ready to send",
+    "gls.PUDO": "Pickup point",
+    "gls.APM": "Parcel locker",
+    "gls.TO_DOOR": "To door",
+    "gls.UNKNOWN": "Unknown delivery method"
   },
   pl: {
     "card.title": "Przesyłki",
@@ -90,6 +100,12 @@ const CARD_TRANSLATIONS = {
     "dialog.show_entity": "Pokaż encję",
     "dialog.refresh_shipment": "Odśwież przesyłkę",
     "dialog.manage_shipment": "Zarządzaj przesyłką",
+    "dialog.live_tracking": "Śledź kuriera na żywo",
+    "dialog.weight": "Waga",
+    "dialog.package_count": "Liczba paczek",
+    "dialog.courier_phone": "Telefon kuriera",
+    "dialog.delivery_method": "Metoda doręczenia",
+    "dialog.parcel_shop_type": "Typ punktu",
     "dialog.close": "Zamknij",
     "card.refresh_all": "Odśwież wszystkie przesyłki",
     "dpd.DELIVERED": "Dostarczona",
@@ -97,7 +113,11 @@ const CARD_TRANSLATIONS = {
     "dpd.RECEIVED_IN_DEPOT": "Przyjęta w oddziale",
     "dpd.IN_TRANSPORT": "W drodze",
     "dpd.RECEIVED_FROM_SENDER": "Odebrana od nadawcy",
-    "dpd.READY_TO_SEND": "Gotowa do wysłania"
+    "dpd.READY_TO_SEND": "Gotowa do wysłania",
+    "gls.PUDO": "Punkt odbioru",
+    "gls.APM": "Paczkomat",
+    "gls.TO_DOOR": "Dostawa do drzwi",
+    "gls.UNKNOWN": "Nieznana metoda doręczenia"
   }
 };
 
@@ -797,6 +817,7 @@ class ShipmentTrackingCard extends HTMLElement {
     const n = name.toLowerCase();
     if (n.includes('inpost')) return 'mdi:locker';
     if (n.includes('dhl') || n.includes('ups') || n.includes('fedex')) return 'mdi:truck-fast';
+    if (n.includes('gls')) return 'mdi:truck-delivery-outline';
     if (n.includes('pocztex') || n.includes('poczta')) return 'mdi:post-outline';
     return 'mdi:package-variant-closed';
   }
@@ -812,6 +833,7 @@ class ShipmentTrackingCard extends HTMLElement {
       'dhl': 'https://upload.wikimedia.org/wikipedia/commons/a/ac/DHL_Logo.svg',
       'dpd': 'https://upload.wikimedia.org/wikipedia/commons/a/ab/DPD_logo_%282015%29.svg',
       'pocztex': 'https://www.poczta-polska.pl/wp-content/uploads/2023/04/logo-Pocztex-podstawowy.svg',
+      'gls': 'https://upload.wikimedia.org/wikipedia/commons/a/a6/GLS_Logo_2021.svg'
     };
 
     for (const [key, url] of Object.entries(LOGOS)) {
@@ -932,6 +954,57 @@ class ShipmentTrackingCard extends HTMLElement {
           }
         }
 
+        if (courier === 'gls') {
+          const trackingShipment = raw.trackingShipment || {};
+          const glsWeight = attrs.weight ?? trackingShipment.weight;
+          const packageCount = attrs.package_count ?? attrs.package_amount ?? trackingShipment.packageAmount;
+          const courierPhone = attrs.courier_phone_number || trackingShipment.courierPhoneNumber;
+          const deliveryMethod = attrs.delivery_method || trackingShipment.deliveryMethod;
+          const parcelShopType = attrs.parcel_shop_type || trackingShipment.parcelShop?.parcelShopType;
+
+          const knownUids = new Set();
+          if (trackingShipment.sender?.shipmentSenderUid) knownUids.add(trackingShipment.sender.shipmentSenderUid);
+          if (trackingShipment.receiver?.shipmentSenderUid) knownUids.add(trackingShipment.receiver.shipmentSenderUid);
+          const courierParty = Array.isArray(raw.trackingParties)
+            ? raw.trackingParties.find(p => p.shipmentSenderUid && !knownUids.has(p.shipmentSenderUid))
+            : null;
+          const courierPersonName = courierParty?.shipmentName
+            ? courierParty.shipmentName.replace(/\s+\d+\s*$/, '').trim()
+            : null;
+
+          if (this._isEnabled("show_dialog_parcel_size") && packageCount) {
+            infoHtml += `<div class="modal-info-block-row"><strong>${this._localize("dialog.package_count")}:</strong> <span class="val">${packageCount}</span></div>`;
+          }
+          if (this._isEnabled("show_dialog_parcel_size") && glsWeight) {
+            infoHtml += `<div class="modal-info-block-row"><strong>${this._localize("dialog.weight")}:</strong> <span class="val">${glsWeight} kg</span></div>`;
+          }
+          if (courierPersonName) {
+            infoHtml += `<div class="modal-info-block-row"><strong>${this._localize("labels.courier_default")}:</strong> <span class="val">${courierPersonName}</span></div>`;
+          }
+          if (courierPhone) {
+            infoHtml += `<div class="modal-info-block-row"><strong>${this._localize("dialog.courier_phone")}:</strong> <span class="val"><a href="tel:${courierPhone}" class="modal-nav-link">${courierPhone}</a></span></div>`;
+          }
+          if (deliveryMethod) {
+            infoHtml += `<div class="modal-info-block-row"><strong>${this._localize("dialog.delivery_method")}:</strong> <span class="val">${this._localize(`gls.${deliveryMethod}`)}</span></div>`;
+          }
+          if (parcelShopType) {
+            infoHtml += `<div class="modal-info-block-row"><strong>${this._localize("dialog.parcel_shop_type")}:</strong> <span class="val">${parcelShopType}</span></div>`;
+          }
+
+          const postalCode = trackingShipment.receiver?.postalCode;
+          const trackingNo = trackingShipment.shipmentNo || trackingShipment.trackingId || attrs.tracking_number;
+          if (attrs.status_key === "handed_out_for_delivery" && deliveryMethod === "TO_DOOR" && postalCode && trackingNo) {
+            const rttUrl = `https://gls-rtt.com/#/preview/gls-pl/pl/${encodeURIComponent(trackingNo)}/${encodeURIComponent(postalCode)}`;
+            infoHtml += `
+              <div class="manage-shipment-container">
+                <a href="${rttUrl}" target="_blank" rel="noopener noreferrer" class="manage-btn" data-manage-link="true">
+                  <ha-icon icon="mdi:map-marker-path"></ha-icon>
+                  <span>${this._localize("dialog.live_tracking")}</span>
+                </a>
+              </div>`;
+          }
+        }
+
         let locationName = attrs.location || attrs.current_location;
         if (locationName && courier === 'inpost' && raw.pickUpPoint?.locationDescription) {
           locationName += ' (' + raw.pickUpPoint.locationDescription + ')';
@@ -1046,6 +1119,29 @@ class ShipmentTrackingCard extends HTMLElement {
                 <div class="timeline-title">${title}</div>
               </div>`;
           });
+        } else if (courier === 'gls' && Array.isArray(raw.trackingShipmentPackages)) {
+          const glsEvents = [];
+          raw.trackingShipmentPackages.forEach(pkg => {
+            const packageNo = pkg.packageNo || pkg.packageTrackingId || '';
+            (pkg.packageStatuses || []).forEach(event => {
+              glsEvents.push({ ...event, packageNo });
+            });
+          });
+          glsEvents
+            .sort((a, b) => new Date(b.packageStatusDate || 0) - new Date(a.packageStatusDate || 0))
+            .forEach(event => {
+              const dateStr = formatDateTime(event.packageStatusDate);
+              const title = event.packageStatusName || event.packageStatusDescription || '';
+              const place = event.packageStatusPlace ? `<div class="timeline-desc">${event.packageStatusPlace}</div>` : '';
+              const packageLine = event.packageNo ? `<div class="timeline-desc"><span dir="ltr">${event.packageNo}</span></div>` : '';
+              timelineHtml += `
+                <div class="timeline-item">
+                  <div class="timeline-date">${dateStr}</div>
+                  <div class="timeline-title">${title}</div>
+                  ${place}
+                  ${packageLine}
+                </div>`;
+            });
         }
       } catch (e) {
         console.error("Failed to parse raw_response", e);

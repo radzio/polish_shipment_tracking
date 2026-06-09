@@ -24,6 +24,13 @@
           "email": "Email",
           "password": "Password"
         }
+      },
+      "gls_credentials": {
+        "description": "Enter your myGLS account phone number and password.",
+        "data": {
+          "phone": "Phone number",
+          "password": "Password"
+        }
       }
     },
     "error": {

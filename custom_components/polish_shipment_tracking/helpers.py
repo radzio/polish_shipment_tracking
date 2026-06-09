@@ -11,6 +11,8 @@ def get_parcel_id(data: dict, courier: str) -> str | None:
         return data.get("shipmentNumber")
     if courier == "pocztex":
         return _pick_pocztex_id(data)
+    if courier == "gls":
+        return _pick_gls_id(data)
     return None
 
 def get_parcel_detail_id(data: dict, courier: str) -> str | None:
@@ -72,6 +74,8 @@ def get_raw_status(parcel_data: dict, courier: str) -> str | None:
         return status_text or None
     if courier == "pocztex":
         return _pick_pocztex_status(parcel_data)
+    if courier == "gls":
+        return _pick_gls_status(parcel_data)
     return None
 
 def _pick_pocztex_status(parcel_data):
@@ -101,6 +105,40 @@ def _pick_pocztex_status(parcel_data):
     ):
         if parcel_data.get(key) is not None:
             return str(parcel_data.get(key))
+    return None
+
+def _pick_gls_id(parcel_data):
+    if not parcel_data or not isinstance(parcel_data, dict):
+        return None
+    tracking_shipment = parcel_data.get("trackingShipment")
+    if isinstance(tracking_shipment, dict):
+        parcel_data = tracking_shipment
+    for key in ("shipmentNo", "trackingId", "trackingUid", "packageNo", "packageUid"):
+        if parcel_data.get(key) is not None:
+            return str(parcel_data.get(key))
+    return None
+
+def _pick_gls_status(parcel_data):
+    if not parcel_data or not isinstance(parcel_data, dict):
+        return None
+    tracking_shipment = parcel_data.get("trackingShipment")
+    if isinstance(tracking_shipment, dict):
+        return _pick_gls_status(tracking_shipment)
+    # progressBarIdent is always the English machine-readable code (e.g. INDELIVERY),
+    # while state may be a localized Polish string (e.g. "W doręczeniu") which breaks mapping.
+    ident = parcel_data.get("progressBarIdent")
+    if isinstance(ident, str) and ident:
+        return ident
+    status = parcel_data.get("state") or parcel_data.get("status")
+    if status is not None:
+        return str(status)
+    statuses = parcel_data.get("packageStatuses")
+    if isinstance(statuses, list) and statuses:
+        latest = statuses[0]
+        if isinstance(latest, dict):
+            for key in ("state", "status", "code", "name"):
+                if latest.get(key) is not None:
+                    return str(latest.get(key))
     return None
 
 _STATUS_MAP = {
@@ -264,6 +302,24 @@ _STATUS_MAP = {
         "P_KWD": "waiting_for_pickup",
         "ODEBRANA W PUNKCIE": "delivered",
         "P_OWU": "delivered",
+    },
+    "gls": {
+        "PREADVICE": "created",
+        "PROCESSING": "created",
+        "INTRANSIT": "in_transport",
+        "INWAREHOUSE": "in_transport",
+        "INPICKUP": "in_transport",
+        "INDELIVERY": "handed_out_for_delivery",
+        "READY_FOR_PICKUP": "waiting_for_pickup",
+        "DELIVEREDPS": "waiting_for_pickup",
+        "DELIVERED": "delivered",
+        "RETURNED": "returned",
+        "CANCELLED": "cancelled",
+        "CANCELED": "cancelled",
+        "NOTDELIVERED": "exception",
+        "NOTPICKEDUP": "returned",
+        "MULTIPACK": "in_transport",
+        "UNAVAILABLE": "exception",
     },
 }
 
