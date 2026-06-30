@@ -117,4 +117,5 @@ class DhlApi:
 
     async def get_parcel(self, shipment_number: str):
         encoded = urllib.parse.quote(str(shipment_number), safe="")
-        return await self.request("GET", f"user/shipment/v2/details/{encoded}")
+        # DHL switched this endpoint from GET to POST (GET now returns 405).
+        return await self.request("POST", f"user/shipment/v2/details/{encoded}")
