@@ -104,7 +104,12 @@ class ShipmentCoordinator(DataUpdateCoordinator):
 
         elif self.courier == "gls":
             from .api_gls import GlsApi
-            api = GlsApi(self.session, session_id=data.get(CONF_SESSION_ID))
+            # GLS is cookie-based too (manages self._cookies via the Cookie
+            # header, like its DummyCookieJar login). Give each account its own
+            # session so cookies don't bleed between GLS accounts on HA's shared
+            # jar (same isolation as DHL).
+            self._owned_session = aiohttp.ClientSession(cookie_jar=aiohttp.DummyCookieJar())
+            api = GlsApi(self._owned_session, session_id=data.get(CONF_SESSION_ID))
             api._token = token
             api._refresh_token = refresh_token
             api._id_token = data.get(CONF_ID_TOKEN)
