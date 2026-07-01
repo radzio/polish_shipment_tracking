@@ -233,7 +233,11 @@ _STATUS_MAP = {
         "TT_DWP_INT": "handed_out_for_delivery",
         "TT_DWP": "handed_out_for_delivery",
         "TT_MAG_INT": "in_transport",
-        "TT_LK": "waiting_for_pickup",
+        # TT_LK (internalStatus MAGLK) is DHL's "out for delivery" state — the
+        # courier is en route, or the parcel is on its way to a POP/BOX point
+        # (timelineStep/menuTimelineLabel = "Delivery"). It is NOT "ready to
+        # collect at the point"; that is TT_AWI (awizo) below.
+        "TT_LK": "handed_out_for_delivery",
         "TT_AWI": "waiting_for_pickup",
         "TT_OP": "delivered",
         "TT_DELAY_KUR": "exception",
