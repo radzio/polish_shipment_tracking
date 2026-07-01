@@ -385,8 +385,9 @@ class ShipmentTrackingCard extends HTMLElement {
             display: flex; flex-direction: column; align-items: center; justify-content: center;
             background: #ffffff; padding: 16px; border-radius: 12px; margin-top: 16px;
             border: 2px solid var(--primary-color); cursor: pointer;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1); transition: transform 0.2s;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1); transition: transform 0.2s, box-shadow 0.2s;
           }
+          .qr-code-container:hover { transform: scale(1.08); box-shadow: 0 8px 22px rgba(0,0,0,0.18); }
           .qr-code-container:active { transform: scale(0.98); }
           .qr-code-container img {
             width: 150px; height: 150px; image-rendering: crisp-edges;
