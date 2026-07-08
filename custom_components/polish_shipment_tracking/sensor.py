@@ -113,7 +113,7 @@ async def async_setup_entry(
             
             current_ids.add(pid)
             if pid not in coordinator.known_parcels:
-                unique_id = f"{coordinator.courier}_{pid}"
+                unique_id = f"{coordinator.courier}_{entry.entry_id}_{pid}"
                 existing_entity_id = registry.async_get_entity_id("sensor", DOMAIN, unique_id)
                 if existing_entity_id is not None:
                     existing_entry = registry.async_get(existing_entity_id)
@@ -161,8 +161,8 @@ def _async_remove_old_entities(
 ) -> None:
     """Remove entities that are no longer in the active parcels list."""
     registry = async_get_entity_registry(hass)
-    current_unique_ids = {f"{coordinator.courier}_{pid}" for pid in current_ids}
-    
+    current_unique_ids = {f"{coordinator.courier}_{entry.entry_id}_{pid}" for pid in current_ids}
+
     entities_to_remove = []
     for entity_entry in registry.entities.values():
         if (
@@ -197,7 +197,7 @@ class ShipmentSensor(CoordinatorEntity[ShipmentCoordinator], SensorEntity):
         # We also add "Parcel" (Paczka) as in the example
         parcel_word = "Paczka" if coordinator.hass.config.language == "pl" else "Parcel"
         self._attr_name = f"{self._courier.title()} {parcel_word} {tracking_number}"
-        self._attr_unique_id = f"{self._courier}_{tracking_number}"
+        self._attr_unique_id = f"{self._courier}_{coordinator.entry.entry_id}_{tracking_number}"
         self._attr_translation_key = "shipment_status"
         self.parcel_data = parcel_data
 
@@ -241,6 +241,8 @@ class ShipmentSensor(CoordinatorEntity[ShipmentCoordinator], SensorEntity):
             self._add_inpost_attributes(attrs)
         elif self._courier == "dpd":
             self._add_dpd_attributes(attrs)
+        elif self._courier == "dhl":
+            self._add_dhl_attributes(attrs)
         elif self._courier == "pocztex":
             self._add_pocztex_attributes(attrs)
         elif self._courier == "gls":
@@ -279,10 +281,45 @@ class ShipmentSensor(CoordinatorEntity[ShipmentCoordinator], SensorEntity):
                 attrs["phone_number"] = phone.get("value")
 
     def _add_dpd_attributes(self, attrs: dict) -> None:
-        """Add DPD specific attributes."""
+        """Add DPD specific attributes.
+
+        DPD business senders often leave ``sender.name`` empty and put the real
+        name in ``sender.company`` (mirrored in the top-level ``sender_company``),
+        so fall back through those.
+        """
         sender = self.parcel_data.get("sender")
+        name = ""
         if isinstance(sender, dict):
-            attrs["sender"] = sender.get("name")
+            name = (sender.get("name") or "").strip() or (sender.get("company") or "").strip()
+        if not name:
+            name = (self.parcel_data.get("sender_name") or "").strip() or (
+                self.parcel_data.get("sender_company") or ""
+            ).strip()
+        if name:
+            attrs["sender"] = name
+
+    def _add_dhl_attributes(self, attrs: dict) -> None:
+        """Add DHL specific attributes.
+
+        DHL returns the sender as a plain string and models progress as a
+        current step + milestone labels/dates rather than an event log.
+        """
+        data = self.parcel_data
+        sender = data.get("sender")
+        if isinstance(sender, str) and sender.strip():
+            attrs["sender"] = sender.strip()
+
+        step = data.get("step")
+        if isinstance(step, str) and step.strip():
+            attrs["current_step"] = step.strip()
+
+        description = data.get("description")
+        if isinstance(description, str) and description.strip():
+            attrs["current_step_description"] = description.strip()
+
+        timeline = data.get("menuTimelineLabel")
+        if isinstance(timeline, dict) and timeline.get("dateUtc"):
+            attrs["estimated_delivery"] = timeline.get("dateUtc")
 
     def _add_pocztex_attributes(self, attrs: dict) -> None:
         """Add Pocztex specific attributes."""
