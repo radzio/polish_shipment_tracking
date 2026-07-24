@@ -20,12 +20,15 @@ from .const import (
     CONF_ID_TOKEN,
     CONF_SESSION_ID,
     CONF_SESSION_REGISTERED,
+    CONF_COOKIE,
+    CONF_ALLEGRO_HOST,
+    CONF_ALLEGRO_CONTEXT,
 )
 from .api_helpers import normalize_phone
 
 _LOGGER = logging.getLogger(__name__)
 
-COURIERS = ["inpost", "dpd", "dhl", "pocztex", "gls"]
+COURIERS = ["inpost", "dpd", "dhl", "pocztex", "gls", "allegro"]
 
 class ShipmentTrackingConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     VERSION = 1
@@ -46,6 +49,8 @@ class ShipmentTrackingConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 return await self.async_step_pocztex_credentials()
             if self.courier == "gls":
                 return await self.async_step_gls_credentials()
+            if self.courier == "allegro":
+                return await self.async_step_allegro_credentials()
             return await self.async_step_phone()
 
         return self.async_show_form(
@@ -169,6 +174,47 @@ class ShipmentTrackingConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             data_schema=vol.Schema({
                 vol.Required(CONF_PHONE): str,
                 vol.Required(CONF_PASSWORD): str,
+            }),
+            errors=errors,
+        )
+
+    async def async_step_allegro_credentials(self, user_input=None):
+        errors = {}
+
+        if user_input is not None:
+            cookie = str(user_input[CONF_COOKIE]).strip()
+            context = user_input[CONF_ALLEGRO_CONTEXT]
+            label = str(user_input.get("name") or "").strip()
+
+            try:
+                from .api_allegro import AllegroApi, ALLEGRO_HOSTS
+                host = ALLEGRO_HOSTS.get(context, "allegro.pl")
+                # Validate the cookie on an isolated session so the check never
+                # touches HA's shared cookie jar.
+                async with aiohttp.ClientSession(cookie_jar=aiohttp.DummyCookieJar()) as allegro_session:
+                    api = AllegroApi(allegro_session, cookie=cookie, host=host)
+                    await api.validate()
+
+                title_suffix = label or context.capitalize()
+                return self.async_create_entry(
+                    title=f"Allegro ({title_suffix})",
+                    data={
+                        CONF_COURIER: self.courier,
+                        CONF_COOKIE: cookie,
+                        CONF_ALLEGRO_HOST: host,
+                        CONF_ALLEGRO_CONTEXT: context,
+                    },
+                )
+            except Exception as e:
+                _LOGGER.exception("Allegro validation failed: %s", e)
+                errors["base"] = "auth_error"
+
+        return self.async_show_form(
+            step_id="allegro_credentials",
+            data_schema=vol.Schema({
+                vol.Required(CONF_COOKIE): str,
+                vol.Required(CONF_ALLEGRO_CONTEXT, default="private"): vol.In(["private", "business"]),
+                vol.Optional("name"): str,
             }),
             errors=errors,
         )

@@ -17,6 +17,11 @@ CONF_DEVICE_UID = "device_uid"
 CONF_ID_TOKEN = "id_token"
 CONF_SESSION_ID = "session_id"
 CONF_SESSION_REGISTERED = "session_registered"
+# Allegro (cookie-based). CONF_COOKIE holds the QXLSESSID value; CONF_ALLEGRO_HOST
+# selects the edge host (allegro.pl for private, business.allegro.pl for business).
+CONF_COOKIE = "cookie"
+CONF_ALLEGRO_HOST = "allegro_host"
+CONF_ALLEGRO_CONTEXT = "allegro_context"
 
 # --- Frontend registration constants ---
 _MANIFEST_PATH: Final[Path] = Path(__file__).parent / "manifest.json"

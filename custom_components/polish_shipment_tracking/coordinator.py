@@ -22,6 +22,8 @@ from .const import (
     CONF_ID_TOKEN,
     CONF_SESSION_ID,
     CONF_SESSION_REGISTERED,
+    CONF_COOKIE,
+    CONF_ALLEGRO_HOST,
 )
 from .helpers import get_parcel_detail_id, get_parcel_id
 from .helpers import is_delivered
@@ -115,6 +117,19 @@ class ShipmentCoordinator(DataUpdateCoordinator):
             api._id_token = data.get(CONF_ID_TOKEN)
             api._expires_at = data.get(CONF_TOKEN_EXPIRES_AT, 0) or 0
             api._session_registered = data.get(CONF_SESSION_REGISTERED)
+            return api
+
+        elif self.courier == "allegro":
+            from .api_allegro import AllegroApi
+            # Cookie-based (QXLSESSID). Isolate the session so two Allegro
+            # accounts (e.g. business + private) never share HA's global cookie
+            # jar. Same rationale as DHL/GLS.
+            self._owned_session = aiohttp.ClientSession(cookie_jar=aiohttp.DummyCookieJar())
+            api = AllegroApi(
+                self._owned_session,
+                cookie=data.get(CONF_COOKIE),
+                host=data.get(CONF_ALLEGRO_HOST, "allegro.pl"),
+            )
             return api
         return None
 
@@ -291,7 +306,53 @@ class ShipmentCoordinator(DataUpdateCoordinator):
                 enriched.append(merged)
             return enriched
 
+        elif self.courier == "allegro":
+            data = await self.api.get_parcels()
+            packages = data.get("packages", []) if isinstance(data, dict) else []
+            if not packages:
+                return []
+            # An Allegro purchase is often shipped by a real carrier (InPost,
+            # DHL, ...). If that same parcel is ALSO tracked directly via its
+            # courier integration here, it would show twice. Prefer the real
+            # courier: drop the Allegro copy whose waybill matches a parcel
+            # already tracked by a non-Allegro coordinator in this HA.
+            return self._dedup_allegro_against_couriers(packages)
+
         return []
+
+    def _dedup_allegro_against_couriers(self, packages):
+        """Hide Allegro packages already tracked under their real courier."""
+
+        def _norm(value):
+            return "".join(ch for ch in str(value or "") if ch.isalnum()).upper()
+
+        tracked_elsewhere = set()
+        for coordinator in self.hass.data.get(DOMAIN, {}).values():
+            if not isinstance(coordinator, ShipmentCoordinator):
+                continue
+            if coordinator is self or coordinator.courier == "allegro":
+                continue
+            for parcel in (coordinator.data or []):
+                if not isinstance(parcel, dict):
+                    continue
+                normalized = _norm(get_parcel_id(parcel, coordinator.courier))
+                if normalized:
+                    tracked_elsewhere.add(normalized)
+
+        if not tracked_elsewhere:
+            return packages
+
+        kept = []
+        for package in packages:
+            waybill = _norm(package.get("waybill"))
+            if waybill and waybill in tracked_elsewhere:
+                _LOGGER.debug(
+                    "Allegro: hiding package %s, already tracked by its real courier",
+                    package.get("waybill"),
+                )
+                continue
+            kept.append(package)
+        return kept
 
     async def _enrich_dpd_parcels(self, parcels):
         """Fetch DPD parcel details to expose fields missing from the list endpoint."""

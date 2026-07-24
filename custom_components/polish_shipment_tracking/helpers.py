@@ -13,6 +13,10 @@ def get_parcel_id(data: dict, courier: str) -> str | None:
         return _pick_pocztex_id(data)
     if courier == "gls":
         return _pick_gls_id(data)
+    if courier == "allegro":
+        # Prefer the carrier waybill; fall back to the order id for packages that
+        # have not been handed to a carrier yet (no waybill assigned).
+        return data.get("waybill") or data.get("order_id")
     return None
 
 def get_parcel_detail_id(data: dict, courier: str) -> str | None:
@@ -79,6 +83,8 @@ def get_raw_status(parcel_data: dict, courier: str) -> str | None:
         return _pick_pocztex_status(parcel_data)
     if courier == "gls":
         return _pick_gls_status(parcel_data)
+    if courier == "allegro":
+        return parcel_data.get("status")
     return None
 
 def _pick_pocztex_status(parcel_data):
@@ -327,6 +333,34 @@ _STATUS_MAP = {
         "NOTPICKEDUP": "returned",
         "MULTIPACK": "in_transport",
         "UNAVAILABLE": "exception",
+    },
+    "allegro": {
+        # delivery.status values from the /packages feed (same enum as the
+        # myorders status.primary.status field).
+        "NEW": "created",
+        "BOUGHT": "created",
+        "PAID": "created",
+        "WAITING_FOR_SENDING": "created",
+        "READY_FOR_SHIPMENT": "created",
+        "READY_FOR_PROCESSING": "created",
+        "SENT": "in_transport",
+        "IN_TRANSIT": "in_transport",
+        "IN_TRANSPORT": "in_transport",
+        "IN_DELIVERY": "handed_out_for_delivery",
+        "OUT_FOR_DELIVERY": "handed_out_for_delivery",
+        "READY_FOR_PICKUP": "waiting_for_pickup",
+        "READY_TO_PICKUP": "waiting_for_pickup",
+        "AVAILABLE_FOR_PICKUP": "waiting_for_pickup",
+        "DELIVERED": "delivered",
+        "PICKED_UP": "delivered",
+        "RECEIVED": "delivered",
+        "RETURNED": "returned",
+        "RETURN_IN_PROGRESS": "returned",
+        "CANCELLED": "cancelled",
+        "CANCELED": "cancelled",
+        "PROBLEM": "exception",
+        "DELIVERY_PROBLEM": "exception",
+        "NOT_DELIVERED": "exception",
     },
 }
 

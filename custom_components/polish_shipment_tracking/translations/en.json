@@ -31,6 +31,14 @@
           "phone": "Phone number",
           "password": "Password"
         }
+      },
+      "allegro_credentials": {
+        "description": "Paste your Allegro QXLSESSID session cookie and choose the account context. Use 'private' for allegro.pl and 'business' for business.allegro.pl (Allegro Biznes).",
+        "data": {
+          "cookie": "QXLSESSID cookie",
+          "allegro_context": "Account context (private / business)",
+          "name": "Label (optional)"
+        }
       }
     },
     "error": {

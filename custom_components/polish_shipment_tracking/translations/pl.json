@@ -31,6 +31,14 @@
           "phone": "Numer telefonu",
           "password": "Hasło"
         }
+      },
+      "allegro_credentials": {
+        "description": "Wklej ciasteczko sesji QXLSESSID z Allegro i wybierz kontekst konta. Wybierz 'private' dla allegro.pl oraz 'business' dla business.allegro.pl (Allegro Biznes).",
+        "data": {
+          "cookie": "Ciasteczko QXLSESSID",
+          "allegro_context": "Kontekst konta (prywatne / firmowe)",
+          "name": "Etykieta (opcjonalnie)"
+        }
       }
     },
     "error": {

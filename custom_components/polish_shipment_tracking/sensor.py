@@ -247,7 +247,9 @@ class ShipmentSensor(CoordinatorEntity[ShipmentCoordinator], SensorEntity):
             self._add_pocztex_attributes(attrs)
         elif self._courier == "gls":
             self._add_gls_attributes(attrs)
-            
+        elif self._courier == "allegro":
+            self._add_allegro_attributes(attrs)
+
         return attrs
 
     def _get_account_contact(self) -> str | None:
@@ -389,6 +391,30 @@ class ShipmentSensor(CoordinatorEntity[ShipmentCoordinator], SensorEntity):
                         history.extend(statuses)
             if history:
                 attrs["history"] = history
+
+    def _add_allegro_attributes(self, attrs: dict) -> None:
+        """Add Allegro specific attributes.
+
+        Allegro packages carry the product name, image, carrier, and (for
+        pickup-point deliveries) a human-readable pickup location + deadline.
+        """
+        data = self.parcel_data
+        # (source key in normalized parcel) -> (attribute name on the sensor)
+        mapping = {
+            "title": "title",
+            "image_url": "image_url",
+            "carrier": "carrier",
+            "carrier_icon": "carrier_icon",
+            "order_url": "tracking_url",
+            "delivery_subtitle": "location",
+            "delivery_title": "delivery_title",
+            "pickup_valid_to": "pickup_deadline",
+            "order_id": "order_id",
+        }
+        for src, dst in mapping.items():
+            value = data.get(src)
+            if value:
+                attrs[dst] = value
 
     @callback
     def _handle_coordinator_update(self) -> None:
