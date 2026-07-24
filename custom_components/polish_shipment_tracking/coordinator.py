@@ -26,7 +26,7 @@ from .const import (
     CONF_ALLEGRO_HOST,
 )
 from .helpers import get_parcel_detail_id, get_parcel_id
-from .helpers import is_delivered, normalize_status
+from .helpers import is_delivered
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -311,9 +311,9 @@ class ShipmentCoordinator(DataUpdateCoordinator):
             packages = data.get("packages", []) if isinstance(data, dict) else []
             if not packages:
                 return []
-            # Pickup-ready packages: attach the numeric pickup code / QR (from
-            # the myorders feed; the /packages feed doesn't carry them).
-            await self._enrich_allegro_pickup_codes(packages)
+            # Attach seller (as sender) + pickup code/QR from the myorders feed;
+            # the /packages feed carries neither.
+            await self._enrich_allegro_order_meta(packages)
             # An Allegro purchase is often shipped by a real carrier (InPost,
             # DHL, ...). If that same parcel is ALSO tracked directly via its
             # courier integration here, it would show twice. Prefer the real
@@ -323,25 +323,22 @@ class ShipmentCoordinator(DataUpdateCoordinator):
 
         return []
 
-    async def _enrich_allegro_pickup_codes(self, packages):
-        """Attach pickup code/phone/QR to pickup-ready Allegro packages."""
-        ready = [
-            p
-            for p in packages
-            if isinstance(p, dict)
-            and normalize_status(p.get("status"), "allegro") == "waiting_for_pickup"
-        ]
-        if not ready:
-            return
+    async def _enrich_allegro_order_meta(self, packages):
+        """Attach seller (as sender) + pickup code/phone/QR to Allegro packages."""
         try:
-            codes = await self.api.get_pickup_codes()
+            meta = await self.api.get_order_meta()
         except Exception as err:
-            _LOGGER.debug("Allegro pickup-code enrichment failed: %s", err)
+            _LOGGER.debug("Allegro order-meta enrichment failed: %s", err)
             return
-        for package in ready:
-            info = codes.get(package.get("waybill"))
+        for package in packages:
+            if not isinstance(package, dict):
+                continue
+            info = meta.get(package.get("waybill"))
             if not info:
                 continue
+            # Seller is the "sender" of an Allegro purchase.
+            if info.get("seller"):
+                package["sender"] = info["seller"]
             if info.get("code"):
                 package["pickup_code"] = info["code"]
             if info.get("phone"):

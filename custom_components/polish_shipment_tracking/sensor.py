@@ -410,6 +410,7 @@ class ShipmentSensor(CoordinatorEntity[ShipmentCoordinator], SensorEntity):
         data = self.parcel_data
         # (source key in normalized parcel) -> (attribute name on the sensor)
         mapping = {
+            "sender": "sender",  # Allegro seller (shop) = the package's sender
             "title": "title",
             "image_url": "image_url",
             "carrier": "carrier",

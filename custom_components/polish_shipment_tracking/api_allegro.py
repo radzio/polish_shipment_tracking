@@ -74,12 +74,13 @@ class AllegroApi:
         result = await self.get_parcels()
         return isinstance(result, dict)
 
-    async def get_pickup_codes(self) -> dict:
-        """Return {waybillId: {code, phone, qr}} for orders with a pickup code.
+    async def get_order_meta(self) -> dict:
+        """Return {waybillId: {seller, code, phone, qr}} from the myorders feed.
 
-        The /packages feed exposes the pickup *point* but not the numeric pickup
-        code / QR. Those live on the public ``myorders`` order feed, so fetch it
-        and index the pickup data by waybillId (which matches /packages.waybill).
+        The /packages feed lacks the seller (sender) and the numeric pickup
+        code / QR; both live on the public ``myorders`` order feed. Index them
+        by waybillId (which matches /packages.waybill). Seller is present for
+        every order; pickup code only once a parcel is ready for collection.
         Best-effort: any failure just yields an empty map (no enrichment).
         """
         url = "https://api.allegro.pl/myorder-api/myorders?limit=25"
@@ -93,25 +94,29 @@ class AllegroApi:
         data = await request_json(
             self._session, "GET", url, headers=headers, label="Allegro myorders"
         )
-        codes: dict = {}
+        meta: dict = {}
         if not isinstance(data, dict):
-            return codes
+            return meta
         for group in data.get("orderGroups") or []:
             for order in group.get("myorders") or []:
+                seller = (order.get("seller") or {}).get("login")
                 primary = (order.get("status") or {}).get("primary") or {}
                 waybills_data = primary.get("waybillsData") or (
                     order.get("delivery") or {}
                 ).get("waybillsData") or {}
                 for waybill in waybills_data.get("waybills") or []:
                     waybill_id = waybill.get("waybillId")
+                    if not waybill_id:
+                        continue
+                    entry = meta.setdefault(waybill_id, {})
+                    if seller and not entry.get("seller"):
+                        entry["seller"] = seller
                     pickup = waybill.get("pickupCode")
-                    if waybill_id and isinstance(pickup, dict):
-                        codes[waybill_id] = {
-                            "code": pickup.get("code"),
-                            "phone": pickup.get("receiverPhoneNumber"),
-                            "qr": pickup.get("qrCode"),
-                        }
-        return codes
+                    if isinstance(pickup, dict):
+                        entry["code"] = pickup.get("code")
+                        entry["phone"] = pickup.get("receiverPhoneNumber")
+                        entry["qr"] = pickup.get("qrCode")
+        return meta
 
     @staticmethod
     def _normalize(pkg: dict) -> dict:
