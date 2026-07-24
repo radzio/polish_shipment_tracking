@@ -13,7 +13,7 @@ from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_registry import async_get as async_get_entity_registry
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN, INTEGRATION_VERSION, CONF_PHONE, CONF_EMAIL
+from .const import DOMAIN, INTEGRATION_VERSION, CONF_PHONE, CONF_EMAIL, CONF_ALLEGRO_CONTEXT
 from .coordinator import ShipmentCoordinator
 from .helpers import (
     get_parcel_id,
@@ -201,7 +201,14 @@ class ShipmentSensor(CoordinatorEntity[ShipmentCoordinator], SensorEntity):
         self._attr_translation_key = "shipment_status"
         self.parcel_data = parcel_data
 
-        account_id = coordinator.entry.data.get(CONF_PHONE) or coordinator.entry.data.get(CONF_EMAIL)
+        account_id = (
+            coordinator.entry.data.get(CONF_PHONE)
+            or coordinator.entry.data.get(CONF_EMAIL)
+            # Allegro entries carry no phone/email; label the account by its
+            # context (Private / Business) instead of showing "(None)".
+            or (coordinator.entry.data.get(CONF_ALLEGRO_CONTEXT) or "").title()
+            or None
+        )
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, coordinator.entry.entry_id)},
             name=f"{self._courier.title()} ({account_id})",
@@ -257,6 +264,8 @@ class ShipmentSensor(CoordinatorEntity[ShipmentCoordinator], SensorEntity):
         entry_data = self.coordinator.entry.data
         if self._courier == "pocztex":
             return entry_data.get(CONF_EMAIL)
+        if self._courier == "allegro":
+            return (entry_data.get(CONF_ALLEGRO_CONTEXT) or "").title() or None
         return entry_data.get(CONF_PHONE) or entry_data.get(CONF_EMAIL)
 
     def _add_inpost_attributes(self, attrs: dict) -> None:
