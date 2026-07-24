@@ -410,6 +410,10 @@ class ShipmentSensor(CoordinatorEntity[ShipmentCoordinator], SensorEntity):
             "delivery_title": "delivery_title",
             "pickup_valid_to": "pickup_deadline",
             "order_id": "order_id",
+            # Pickup-ready enrichment (from myorders): numeric code + phone + QR.
+            "pickup_code": "pickup_code",
+            "pickup_phone": "phone_number",
+            "pickup_qr": "qr_code",
         }
         for src, dst in mapping.items():
             value = data.get(src)

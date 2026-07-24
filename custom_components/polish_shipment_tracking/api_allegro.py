@@ -74,6 +74,45 @@ class AllegroApi:
         result = await self.get_parcels()
         return isinstance(result, dict)
 
+    async def get_pickup_codes(self) -> dict:
+        """Return {waybillId: {code, phone, qr}} for orders with a pickup code.
+
+        The /packages feed exposes the pickup *point* but not the numeric pickup
+        code / QR. Those live on the public ``myorders`` order feed, so fetch it
+        and index the pickup data by waybillId (which matches /packages.waybill).
+        Best-effort: any failure just yields an empty map (no enrichment).
+        """
+        url = "https://api.allegro.pl/myorder-api/myorders?limit=25"
+        headers = {
+            "Accept": "application/vnd.allegro.public.v3+json",
+            "Accept-Language": "pl-PL",
+            "Referer": f"https://{self._host}/",
+            "User-Agent": _USER_AGENT,
+            "Cookie": f"QXLSESSID={self._cookie}",
+        }
+        data = await request_json(
+            self._session, "GET", url, headers=headers, label="Allegro myorders"
+        )
+        codes: dict = {}
+        if not isinstance(data, dict):
+            return codes
+        for group in data.get("orderGroups") or []:
+            for order in group.get("myorders") or []:
+                primary = (order.get("status") or {}).get("primary") or {}
+                waybills_data = primary.get("waybillsData") or (
+                    order.get("delivery") or {}
+                ).get("waybillsData") or {}
+                for waybill in waybills_data.get("waybills") or []:
+                    waybill_id = waybill.get("waybillId")
+                    pickup = waybill.get("pickupCode")
+                    if waybill_id and isinstance(pickup, dict):
+                        codes[waybill_id] = {
+                            "code": pickup.get("code"),
+                            "phone": pickup.get("receiverPhoneNumber"),
+                            "qr": pickup.get("qrCode"),
+                        }
+        return codes
+
     @staticmethod
     def _normalize(pkg: dict) -> dict:
         """Flatten a raw package into the flat parcel dict the integration uses."""

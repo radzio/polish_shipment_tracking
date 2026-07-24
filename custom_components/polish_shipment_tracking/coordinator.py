@@ -26,7 +26,7 @@ from .const import (
     CONF_ALLEGRO_HOST,
 )
 from .helpers import get_parcel_detail_id, get_parcel_id
-from .helpers import is_delivered
+from .helpers import is_delivered, normalize_status
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -311,6 +311,9 @@ class ShipmentCoordinator(DataUpdateCoordinator):
             packages = data.get("packages", []) if isinstance(data, dict) else []
             if not packages:
                 return []
+            # Pickup-ready packages: attach the numeric pickup code / QR (from
+            # the myorders feed; the /packages feed doesn't carry them).
+            await self._enrich_allegro_pickup_codes(packages)
             # An Allegro purchase is often shipped by a real carrier (InPost,
             # DHL, ...). If that same parcel is ALSO tracked directly via its
             # courier integration here, it would show twice. Prefer the real
@@ -319,6 +322,32 @@ class ShipmentCoordinator(DataUpdateCoordinator):
             return self._dedup_allegro_against_couriers(packages)
 
         return []
+
+    async def _enrich_allegro_pickup_codes(self, packages):
+        """Attach pickup code/phone/QR to pickup-ready Allegro packages."""
+        ready = [
+            p
+            for p in packages
+            if isinstance(p, dict)
+            and normalize_status(p.get("status"), "allegro") == "waiting_for_pickup"
+        ]
+        if not ready:
+            return
+        try:
+            codes = await self.api.get_pickup_codes()
+        except Exception as err:
+            _LOGGER.debug("Allegro pickup-code enrichment failed: %s", err)
+            return
+        for package in ready:
+            info = codes.get(package.get("waybill"))
+            if not info:
+                continue
+            if info.get("code"):
+                package["pickup_code"] = info["code"]
+            if info.get("phone"):
+                package["pickup_phone"] = info["phone"]
+            if info.get("qr"):
+                package["pickup_qr"] = info["qr"]
 
     def _dedup_allegro_against_couriers(self, packages):
         """Hide Allegro packages already tracked under their real courier."""

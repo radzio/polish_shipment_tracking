@@ -1040,9 +1040,14 @@ class ShipmentTrackingCard extends HTMLElement {
           infoHtml += `<div class="modal-info-block-row"><strong>${this._localize("dialog.pickup_point")}:</strong> ${locationContent}</div>`;
         }
 
-        if (this._isEnabled("show_dialog_qr_code") && courier === 'inpost' && raw.qrCode && attrs.status_key === 'waiting_for_pickup') {
-           const qrUrlSmall = `https://quickchart.io/qr?text=${encodeURIComponent(raw.qrCode)}&size=150&margin=0&ecLevel=H`;
-           const qrUrlLarge = `https://quickchart.io/qr?text=${encodeURIComponent(raw.qrCode)}&size=500&margin=0&ecLevel=H`;
+        // QR source: InPost carries a real qrCode; Allegro pickup packages use
+        // their Allegro QR when present (lockers), else the numeric pickup code.
+        const qrValue = courier === 'inpost'
+          ? raw.qrCode
+          : (courier === 'allegro' ? (attrs.qr_code || attrs.pickup_code) : null);
+        if (this._isEnabled("show_dialog_qr_code") && qrValue && attrs.status_key === 'waiting_for_pickup') {
+           const qrUrlSmall = `https://quickchart.io/qr?text=${encodeURIComponent(qrValue)}&size=150&margin=0&ecLevel=H`;
+           const qrUrlLarge = `https://quickchart.io/qr?text=${encodeURIComponent(qrValue)}&size=500&margin=0&ecLevel=H`;
            infoHtml += `
              <div class="qr-code-container" data-large-qr="${qrUrlLarge}">
                <img src="${qrUrlSmall}" alt="QR Code" />
@@ -1330,7 +1335,11 @@ class ShipmentTrackingCard extends HTMLElement {
         const line2 = isTrackingName ? "" : attributes.tracking_number;
         const displayLine2 = line2 ? `<span dir="ltr">${line2}</span>` : "";
 
-        const imageUrl = this.getCourierImage(courier);
+        // Allegro packages carry the real carrier's icon (Allegro One / InPost /
+        // ...) as an image URL; prefer it. Falls back to the mdi icon via onerror.
+        const imageUrl = (courier === 'allegro' && attributes.carrier_icon)
+          ? attributes.carrier_icon
+          : this.getCourierImage(courier);
         const iconMdi = attributes.icon || this.getCourierIcon(courier);
 
         let iconHtml;
