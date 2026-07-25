@@ -7,7 +7,7 @@ import time
 import aiohttp
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
@@ -43,6 +43,10 @@ class ShipmentCoordinator(DataUpdateCoordinator):
         # cookie-based, so accounts must NOT share HA's global cookie jar or one
         # account's access-token cookie bleeds into the other's requests.
         self._owned_session: aiohttp.ClientSession | None = None
+        # Allegro only: cache of the pre-dedup packages from the last fetch, so
+        # we can re-run the cross-courier dedup reactively (no refetch) when
+        # another courier's coordinator updates and now covers a shared parcel.
+        self._allegro_raw_packages: list | None = None
 
         super().__init__(
             hass,
@@ -309,11 +313,12 @@ class ShipmentCoordinator(DataUpdateCoordinator):
         elif self.courier == "allegro":
             data = await self.api.get_parcels()
             packages = data.get("packages", []) if isinstance(data, dict) else []
-            if not packages:
-                return []
-            # Attach seller (as sender) + pickup code/QR from the myorders feed;
-            # the /packages feed carries neither.
-            await self._enrich_allegro_order_meta(packages)
+            if packages:
+                # Attach seller (as sender) + pickup code/QR from the myorders
+                # feed; the /packages feed carries neither.
+                await self._enrich_allegro_order_meta(packages)
+            # Cache pre-dedup packages for reactive re-dedup (see rededup_from_cache).
+            self._allegro_raw_packages = list(packages)
             # An Allegro purchase is often shipped by a real carrier (InPost,
             # DHL, ...). If that same parcel is ALSO tracked directly via its
             # courier integration here, it would show twice. Prefer the real
@@ -322,6 +327,24 @@ class ShipmentCoordinator(DataUpdateCoordinator):
             return self._dedup_allegro_against_couriers(packages)
 
         return []
+
+    @callback
+    def rededup_from_cache(self) -> None:
+        """Re-run the Allegro cross-courier dedup on cached packages.
+
+        Called when another courier's coordinator updates: a parcel Allegro is
+        showing may now be covered by its real courier (which loaded/refreshed
+        after Allegro's last fetch). Re-filters the cached pre-dedup packages
+        against the other couriers' current data and pushes the result if it
+        changed — no Allegro API refetch. Cheap and race-proof.
+        """
+        if self.courier != "allegro" or self._allegro_raw_packages is None:
+            return
+        filtered = self._filter_active_parcels(
+            self._dedup_allegro_against_couriers(list(self._allegro_raw_packages))
+        )
+        if filtered != (self.data or []):
+            self.async_set_updated_data(filtered)
 
     async def _enrich_allegro_order_meta(self, packages):
         """Attach seller (as sender) + pickup code/phone/QR to Allegro packages."""

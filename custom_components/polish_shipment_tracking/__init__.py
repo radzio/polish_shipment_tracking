@@ -86,6 +86,21 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
 
     hass.data[DOMAIN][entry.entry_id] = coordinator
 
+    # Reactive Allegro dedup: when a NON-allegro courier's coordinator updates,
+    # re-run every Allegro coordinator's cross-courier dedup so an Allegro copy
+    # of a parcel now covered by its real courier is dropped promptly (instead
+    # of waiting for Allegro's own ~15-min cycle). Allegro coordinators are
+    # resolved dynamically, so this works regardless of entry load order and
+    # covers multiple Allegro accounts.
+    if coordinator.courier != "allegro":
+        @callback
+        def _rededup_allegro() -> None:
+            for other in list(hass.data.get(DOMAIN, {}).values()):
+                if isinstance(other, ShipmentCoordinator) and other.courier == "allegro":
+                    other.rededup_from_cache()
+
+        entry.async_on_unload(coordinator.async_add_listener(_rededup_allegro))
+
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     
     return True
