@@ -24,6 +24,8 @@ from .const import (
     CONF_SESSION_REGISTERED,
     CONF_COOKIE,
     CONF_ALLEGRO_HOST,
+    CONF_ADDRESS_TOKEN,
+    CONF_UPS_LOCALE,
 )
 from .helpers import get_parcel_detail_id, get_parcel_id
 from .helpers import is_delivered
@@ -133,6 +135,26 @@ class ShipmentCoordinator(DataUpdateCoordinator):
                 self._owned_session,
                 cookie=data.get(CONF_COOKIE),
                 host=data.get(CONF_ALLEGRO_HOST, "allegro.pl"),
+            )
+            return api
+
+        elif self.courier == "ups":
+            from .api_ups import UpsApi
+            # Cookie/session based. Isolated session; cookies carried explicitly
+            # via the Cookie header (and rotated CSRF captured from Set-Cookie).
+            self._owned_session = aiohttp.ClientSession(cookie_jar=aiohttp.DummyCookieJar())
+            cookies = {}
+            cookies_json = data.get("cookies")
+            if cookies_json:
+                try:
+                    cookies = json.loads(cookies_json)
+                except Exception as e:
+                    _LOGGER.warning("Failed to restore UPS cookies: %s", e)
+            api = UpsApi(
+                self._owned_session,
+                cookies=cookies,
+                address_token=data.get(CONF_ADDRESS_TOKEN),
+                locale=data.get(CONF_UPS_LOCALE, "en_US"),
             )
             return api
         return None
@@ -326,7 +348,22 @@ class ShipmentCoordinator(DataUpdateCoordinator):
             # already tracked by a non-Allegro coordinator in this HA.
             return self._dedup_allegro_against_couriers(packages)
 
+        elif self.courier == "ups":
+            data = await self.api.get_parcels()
+            # Cookies rotate every call (CSRF) — persist so they survive restart.
+            self._persist_ups_cookies_if_changed()
+            return data.get("shipments", []) if isinstance(data, dict) else []
+
         return []
+
+    def _persist_ups_cookies_if_changed(self):
+        """Persist UPS cookies (rotated CSRF etc.) back to the config entry."""
+        if self.courier != "ups":
+            return
+        new_cookies = json.dumps(self.api._cookies)
+        if new_cookies != self.entry.data.get("cookies"):
+            new_data = {**self.entry.data, "cookies": new_cookies}
+            self.hass.config_entries.async_update_entry(self.entry, data=new_data)
 
     @callback
     def rededup_from_cache(self) -> None:

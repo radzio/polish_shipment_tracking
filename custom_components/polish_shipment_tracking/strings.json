@@ -39,6 +39,12 @@
           "allegro_context": "Account context (private / business)",
           "name": "Label (optional)"
         }
+      },
+      "ups_credentials": {
+        "description": "Log in at ups.com, open your dashboard, then in DevTools (F12) → Network right-click the 'GetIncomingShipments' request → Copy → Copy as cURL, and paste it below. HA keeps the session alive by polling.",
+        "data": {
+          "curl": "Pasted 'Copy as cURL'"
+        }
       }
     },
     "error": {

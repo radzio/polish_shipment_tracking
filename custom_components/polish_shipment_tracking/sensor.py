@@ -256,6 +256,8 @@ class ShipmentSensor(CoordinatorEntity[ShipmentCoordinator], SensorEntity):
             self._add_gls_attributes(attrs)
         elif self._courier == "allegro":
             self._add_allegro_attributes(attrs)
+        elif self._courier == "ups":
+            self._add_ups_attributes(attrs)
 
         return attrs
 
@@ -424,6 +426,23 @@ class ShipmentSensor(CoordinatorEntity[ShipmentCoordinator], SensorEntity):
             "pickup_code": "pickup_code",
             "pickup_phone": "phone_number",
             "pickup_qr": "qr_code",
+        }
+        for src, dst in mapping.items():
+            value = data.get(src)
+            if value:
+                attrs[dst] = value
+
+    def _add_ups_attributes(self, attrs: dict) -> None:
+        """Add UPS specific attributes."""
+        data = self.parcel_data
+        mapping = {
+            "sender": "sender",              # shipFromName
+            "from_location": "location",
+            "service": "service",
+            "scheduled_delivery": "estimated_delivery",
+            "delivery_date": "delivery_date",
+            "package_quantity": "package_count",
+            "activity": "history",           # btActivity scan list
         }
         for src, dst in mapping.items():
             value = data.get(src)

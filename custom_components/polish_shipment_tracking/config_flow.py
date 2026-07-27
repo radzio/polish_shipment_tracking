@@ -23,12 +23,14 @@ from .const import (
     CONF_COOKIE,
     CONF_ALLEGRO_HOST,
     CONF_ALLEGRO_CONTEXT,
+    CONF_ADDRESS_TOKEN,
+    CONF_UPS_LOCALE,
 )
 from .api_helpers import normalize_phone
 
 _LOGGER = logging.getLogger(__name__)
 
-COURIERS = ["inpost", "dpd", "dhl", "pocztex", "gls", "allegro"]
+COURIERS = ["inpost", "dpd", "dhl", "pocztex", "gls", "allegro", "ups"]
 
 class ShipmentTrackingConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     VERSION = 1
@@ -51,6 +53,8 @@ class ShipmentTrackingConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 return await self.async_step_gls_credentials()
             if self.courier == "allegro":
                 return await self.async_step_allegro_credentials()
+            if self.courier == "ups":
+                return await self.async_step_ups_credentials()
             return await self.async_step_phone()
 
         return self.async_show_form(
@@ -215,6 +219,50 @@ class ShipmentTrackingConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 vol.Required(CONF_COOKIE): str,
                 vol.Required(CONF_ALLEGRO_CONTEXT, default="private"): vol.In(["private", "business"]),
                 vol.Optional("name"): str,
+            }),
+            errors=errors,
+        )
+
+    async def async_step_ups_credentials(self, user_input=None):
+        errors = {}
+        from homeassistant.helpers import selector
+
+        if user_input is not None:
+            curl_text = str(user_input.get("curl") or "")
+            try:
+                from .api_ups import UpsApi, parse_curl
+                parsed = parse_curl(curl_text)
+                cookies = parsed["cookies"]
+                address_token = parsed["address_token"]
+                locale = parsed["locale"] or "en_US"
+                if not cookies or not address_token:
+                    raise ValueError("cookies/addressToken not found in the pasted cURL")
+
+                # Validate on an isolated session (keeps rotated cookies).
+                async with aiohttp.ClientSession(cookie_jar=aiohttp.DummyCookieJar()) as ups_session:
+                    api = UpsApi(ups_session, cookies=cookies, address_token=address_token, locale=locale)
+                    await api.validate()
+                    cookies = api._cookies
+
+                return self.async_create_entry(
+                    title=f"UPS ({address_token[:8]}…)",
+                    data={
+                        CONF_COURIER: self.courier,
+                        "cookies": json.dumps(cookies),
+                        CONF_ADDRESS_TOKEN: address_token,
+                        CONF_UPS_LOCALE: locale,
+                    },
+                )
+            except Exception as e:
+                _LOGGER.exception("UPS validation failed: %s", e)
+                errors["base"] = "auth_error"
+
+        return self.async_show_form(
+            step_id="ups_credentials",
+            data_schema=vol.Schema({
+                vol.Required("curl"): selector.TextSelector(
+                    selector.TextSelectorConfig(multiline=True)
+                ),
             }),
             errors=errors,
         )

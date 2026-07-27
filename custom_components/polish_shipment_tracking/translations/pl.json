@@ -39,6 +39,12 @@
           "allegro_context": "Kontekst konta (prywatne / firmowe)",
           "name": "Etykieta (opcjonalnie)"
         }
+      },
+      "ups_credentials": {
+        "description": "Zaloguj się na ups.com, otwórz pulpit, następnie w DevTools (F12) → Network kliknij prawym na żądanie 'GetIncomingShipments' → Copy → Copy as cURL i wklej poniżej. HA utrzymuje sesję przez odpytywanie.",
+        "data": {
+          "curl": "Wklejone 'Copy as cURL'"
+        }
       }
     },
     "error": {

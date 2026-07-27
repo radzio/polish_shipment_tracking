@@ -17,6 +17,8 @@ def get_parcel_id(data: dict, courier: str) -> str | None:
         # Prefer the carrier waybill; fall back to the order id for packages that
         # have not been handed to a carrier yet (no waybill assigned).
         return data.get("waybill") or data.get("order_id")
+    if courier == "ups":
+        return data.get("trackingNumber")
     return None
 
 def get_parcel_detail_id(data: dict, courier: str) -> str | None:
@@ -84,6 +86,8 @@ def get_raw_status(parcel_data: dict, courier: str) -> str | None:
     if courier == "gls":
         return _pick_gls_status(parcel_data)
     if courier == "allegro":
+        return parcel_data.get("status")
+    if courier == "ups":
         return parcel_data.get("status")
     return None
 
@@ -361,6 +365,28 @@ _STATUS_MAP = {
         "PROBLEM": "exception",
         "DELIVERY_PROBLEM": "exception",
         "NOT_DELIVERED": "exception",
+    },
+    "ups": {
+        # UPS dashboard `status` display strings (English even for pl_PL).
+        "DELIVERED": "delivered",
+        "OUT FOR DELIVERY": "handed_out_for_delivery",
+        "OUT FOR DELIVERY TODAY": "handed_out_for_delivery",
+        "ON THE WAY": "in_transport",
+        "IN TRANSIT": "in_transport",
+        "ARRIVED AT FACILITY": "in_transport",
+        "DEPARTED FROM FACILITY": "in_transport",
+        "PROCESSING AT UPS FACILITY": "in_transport",
+        "ORIGIN SCAN": "in_transport",
+        "PICKUP SCAN": "in_transport",
+        "ORDER PROCESSED: READY FOR UPS": "created",
+        "LABEL CREATED": "created",
+        "SHIPMENT READY FOR UPS": "created",
+        "READY FOR PICKUP": "waiting_for_pickup",
+        "DELIVERED TO ACCESS POINT": "waiting_for_pickup",
+        "EXCEPTION": "exception",
+        "DELIVERY ATTEMPTED": "exception",
+        "RETURNED TO SENDER": "returned",
+        "RETURN TO SENDER": "returned",
     },
 }
 

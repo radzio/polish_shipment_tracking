@@ -22,6 +22,10 @@ CONF_SESSION_REGISTERED = "session_registered"
 CONF_COOKIE = "cookie"
 CONF_ALLEGRO_HOST = "allegro_host"
 CONF_ALLEGRO_CONTEXT = "allegro_context"
+# UPS (cookie/session based, seeded from a copied cURL). Cookies are stored as a
+# JSON string under the shared "cookies" key (same as DHL).
+CONF_ADDRESS_TOKEN = "address_token"
+CONF_UPS_LOCALE = "ups_locale"
 
 # --- Frontend registration constants ---
 _MANIFEST_PATH: Final[Path] = Path(__file__).parent / "manifest.json"
