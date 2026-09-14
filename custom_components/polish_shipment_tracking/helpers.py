@@ -230,6 +230,13 @@ _STATUS_MAP = {
         "REDIRECTED": "in_transport",
         "RESCHEDULED": "in_transport",
         "HANDED_OVER_FOR_DELIVERY": "handed_out_for_delivery",
+        # PUDO variant: handed to the courier for delivery to a pickup point
+        # (Zabka etc.) rather than to the door. Flips to READY_TO_PICK_UP on
+        # arrival at the point. Mapped alongside its non-PUDO sibling; note the
+        # generic fallback in normalize_status() cannot catch it, because that
+        # tests for "handed over for delivery" with spaces while DPD sends
+        # SCREAMING_SNAKE, so an explicit entry here is the only coverage.
+        "HANDED_OVER_FOR_DELIVERY_PUDO": "handed_out_for_delivery",
         "READY_TO_PICK_UP": "waiting_for_pickup",
         "SELF_PICKUP": "waiting_for_pickup",
         "HARD_RESERVED": "waiting_for_pickup",
