@@ -69,7 +69,7 @@ Notes:
 
 1. Open HACS -> Integrations.
 2. Add this repository as a Custom repository:
-   - Repository: https://github.com/stirante/polish_shipment_tracking
+   - Repository: https://github.com/radzio/polish_shipment_tracking
    - Category: Integration
 3. Install the integration.
 4. Restart Home Assistant.
@@ -167,7 +167,7 @@ logger:
 
 ## Issues and support
 
-* Issues: [https://github.com/stirante/polish_shipment_tracking/issues](https://github.com/stirante/polish_shipment_tracking/issues)
+* Issues: [https://github.com/radzio/polish_shipment_tracking/issues](https://github.com/radzio/polish_shipment_tracking/issues)
 * Pull requests are welcome.
 
 When reporting a bug, include:
