@@ -1,12 +1,12 @@
 {
   "domain": "polish_shipment_tracking",
   "name": "Polish Shipment Tracking",
-  "codeowners": ["@stirante"],
+  "codeowners": ["@radzio"],
   "config_flow": true,
   "dependencies": ["frontend", "http"],
-  "documentation": "https://github.com/stirante/polish_shipment_tracking",
+  "documentation": "https://github.com/radzio/polish_shipment_tracking",
   "iot_class": "cloud_polling",
-  "issue_tracker": "https://github.com/stirante/polish_shipment_tracking/issues",
+  "issue_tracker": "https://github.com/radzio/polish_shipment_tracking/issues",
   "requirements": ["aiohttp>=3.9.0", "voluptuous>=0.13.1"],
   "version": "1.7.1"
 }
