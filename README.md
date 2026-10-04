@@ -20,19 +20,31 @@ Integracja dla Home Assistant do śledzenia przesyłek u popularnych przewoźnik
   - automatyczna rejestracja zasobu w dashboardach w trybie storage
 
 > [!TIP]
-> Możesz dodać wiele kont / numerów dla tego samego przewoźnika (np. dla dwóch osób).
+> Możesz dodać wiele kont / numerów dla tego samego przewoźnika (np. dla dwóch osób) – dotyczy to wszystkich przewoźników, szczegóły w sekcji [Wiele kont u jednego przewoźnika](#wiele-kont-u-jednego-przewoźnika).
 
 ## Wspierani przewoźnicy
 
-| Przewoźnik | Logowanie |
+| Przewoźnik | Logowanie | Wiele kont | Konto rozróżniane po |
+|---|---|:---:|---|
+| InPost | numer telefonu + kod SMS | ✅ | numerze telefonu |
+| DPD | numer telefonu + kod SMS | ✅ | numerze telefonu |
+| DHL | numer telefonu + kod SMS | ✅ | numerze telefonu |
+| Pocztex (Poczta Polska) | e-mail + hasło | ✅ | adresie e-mail |
+| GLS | numer telefonu + hasło do konta myGLS | ✅ | numerze telefonu |
+| Allegro | ciasteczko sesji `QXLSESSID` + kontekst konta (prywatne / firmowe) | ✅ | ciasteczku i kontekście (opcjonalna własna etykieta) |
+| UPS | wklejone „Copy as cURL” żądania `GetIncomingShipments` z pulpitu ups.com | ✅ | wklejonej sesji |
+
+### Wiele kont u jednego przewoźnika
+
+Każdy przewoźnik obsługuje wiele kont – dodaj integrację ponownie i wybierz tego samego przewoźnika z innymi danymi logowania (np. numery telefonów dwóch osób). Każde konto to osobny wpis z własnymi encjami; atrybut `account_contact` sensora mówi, do którego konta należy przesyłka.
+
+| Przewoźnik | Jak działa wiele kont |
 |---|---|
-| InPost | numer telefonu + kod SMS |
-| DPD | numer telefonu + kod SMS |
-| DHL | numer telefonu + kod SMS |
-| Pocztex (Poczta Polska) | e-mail + hasło |
-| GLS | numer telefonu + hasło do konta myGLS |
-| Allegro | ciasteczko sesji `QXLSESSID` + kontekst konta (prywatne / firmowe) |
-| UPS | wklejone „Copy as cURL” żądania `GetIncomingShipments` z pulpitu ups.com |
+| InPost | Przesyłka udostępniona między Twoimi własnymi kontami pojawia się tylko raz (u właściciela). Przesyłki udostępnione przez osoby spoza integracji są nadal widoczne. |
+| DPD, Pocztex | Konta są niezależne – każde ma własny token. |
+| DHL, GLS | Każde konto ma własną, odizolowaną sesję, więc ciasteczka kont nie mieszają się ze sobą. |
+| Allegro | Jeden wpis na ciasteczko i kontekst. To samo logowanie możesz dodać dwa razy: jako konto prywatne i jako Allegro Biznes. |
+| UPS | Jeden wpis na wklejoną sesję przeglądarki. |
 
 Uwagi:
 

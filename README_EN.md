@@ -20,19 +20,31 @@ Home Assistant integration for tracking shipments from popular carriers in Polan
   - automatic resource registration for storage dashboards
 
 > [!TIP]
-> You can add multiple entries for the same carrier (e.g., your number and your spouse's account).
+> You can add multiple entries for the same carrier (e.g., your number and your spouse's account) – this works for every carrier, see [Multiple accounts per carrier](#multiple-accounts-per-carrier).
 
 ## Supported carriers
 
-| Carrier | Login |
+| Carrier | Login | Multiple accounts | Account identified by |
+|---|---|:---:|---|
+| InPost | phone number + SMS code | ✅ | phone number |
+| DPD | phone number + SMS code | ✅ | phone number |
+| DHL | phone number + SMS code | ✅ | phone number |
+| Pocztex (Poczta Polska) | e-mail + password | ✅ | e-mail address |
+| GLS | phone number + myGLS account password | ✅ | phone number |
+| Allegro | `QXLSESSID` session cookie + account context (private / business) | ✅ | cookie and context (optional custom label) |
+| UPS | pasted "Copy as cURL" of the `GetIncomingShipments` request from the ups.com dashboard | ✅ | pasted session |
+
+### Multiple accounts per carrier
+
+Every carrier supports multiple accounts – add the integration again and pick the same carrier with different credentials (e.g. two people's phone numbers). Each account is a separate entry with its own entities; the sensor's `account_contact` attribute tells you which account a shipment belongs to.
+
+| Carrier | How multiple accounts behave |
 |---|---|
-| InPost | phone number + SMS code |
-| DPD | phone number + SMS code |
-| DHL | phone number + SMS code |
-| Pocztex (Poczta Polska) | e-mail + password |
-| GLS | phone number + myGLS account password |
-| Allegro | `QXLSESSID` session cookie + account context (private / business) |
-| UPS | pasted "Copy as cURL" of the `GetIncomingShipments` request from the ups.com dashboard |
+| InPost | A parcel shared between your own accounts shows up only once (under the owner). Parcels shared by people outside the integration are still shown. |
+| DPD, Pocztex | Accounts are independent – each has its own token. |
+| DHL, GLS | Each account gets its own isolated session, so the accounts' cookies never mix. |
+| Allegro | One entry per cookie and context. The same login can be added twice: as a private account and as Allegro Business. |
+| UPS | One entry per pasted browser session. |
 
 Notes:
 
