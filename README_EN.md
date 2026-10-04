@@ -24,11 +24,20 @@ Home Assistant integration for tracking shipments from popular carriers in Polan
 
 ## Supported carriers
 
-- InPost
-- DHL
-- DPD
-- Pocztex
-- GLS
+| Carrier | Login |
+|---|---|
+| InPost | phone number + SMS code |
+| DPD | phone number + SMS code |
+| DHL | phone number + SMS code |
+| Pocztex (Poczta Polska) | e-mail + password |
+| GLS | phone number + myGLS account password |
+| Allegro | `QXLSESSID` session cookie + account context (private / business) |
+| UPS | pasted "Copy as cURL" of the `GetIncomingShipments` request from the ups.com dashboard |
+
+Notes:
+
+- **Allegro** returns active packages only. A package already tracked through the real carrier's account (e.g. InPost or DHL) is not duplicated. When the cookie expires, the entry has to be added again.
+- **UPS** has no login inside the integration – the session is taken over from the browser and kept alive by periodic polling.
 
 > [!WARNING]
 > The integration relies on unofficial APIs used by carrier apps/services. These APIs may change without notice.

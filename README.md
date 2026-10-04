@@ -24,11 +24,20 @@ Integracja dla Home Assistant do śledzenia przesyłek u popularnych przewoźnik
 
 ## Wspierani przewoźnicy
 
-- InPost
-- DHL
-- DPD
-- Pocztex
-- GLS
+| Przewoźnik | Logowanie |
+|---|---|
+| InPost | numer telefonu + kod SMS |
+| DPD | numer telefonu + kod SMS |
+| DHL | numer telefonu + kod SMS |
+| Pocztex (Poczta Polska) | e-mail + hasło |
+| GLS | numer telefonu + hasło do konta myGLS |
+| Allegro | ciasteczko sesji `QXLSESSID` + kontekst konta (prywatne / firmowe) |
+| UPS | wklejone „Copy as cURL” żądania `GetIncomingShipments` z pulpitu ups.com |
+
+Uwagi:
+
+- **Allegro** zwraca tylko aktywne przesyłki. Przesyłka śledzona już przez konto właściwego przewoźnika (np. InPost lub DHL) nie jest dublowana. Po wygaśnięciu ciasteczka wpis trzeba dodać ponownie.
+- **UPS** nie ma logowania w integracji – sesja jest przejmowana z przeglądarki i podtrzymywana przez cykliczne odpytywanie.
 
 > [!WARNING]
 > Integracja korzysta z nieoficjalnych API aplikacji/serwisów przewoźników. Te API mogą ulec zmianie bez uprzedzenia.
