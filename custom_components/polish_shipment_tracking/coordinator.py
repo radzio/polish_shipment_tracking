@@ -12,6 +12,7 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .const import (
+    DATA_IGNORED,
     DOMAIN,
     CONF_TOKEN,
     CONF_REFRESH_TOKEN,
@@ -635,14 +636,29 @@ class ShipmentCoordinator(DataUpdateCoordinator):
         return None
 
     def _filter_active_parcels(self, parcels):
-        """Keep only active parcels in coordinator data."""
+        """Keep only active parcels the user has not ignored."""
         if not isinstance(parcels, list):
             return []
-        return [
-            parcel
-            for parcel in parcels
-            if isinstance(parcel, dict) and not is_delivered(parcel, self.courier)
-        ]
+        ignored = self.hass.data.get(DOMAIN, {}).get(DATA_IGNORED)
+        kept = []
+        for parcel in parcels:
+            if not isinstance(parcel, dict) or is_delivered(parcel, self.courier):
+                continue
+            if ignored is not None:
+                pid = get_parcel_id(parcel, self.courier)
+                if ignored.is_ignored(pid):
+                    ignored.mark_seen(pid)
+                    continue
+            kept.append(parcel)
+        return kept
+
+    @callback
+    def async_apply_ignore_list(self) -> None:
+        """Drop newly ignored parcels from the current data (no refetch)."""
+        current = self.data or []
+        filtered = self._filter_active_parcels(current)
+        if len(filtered) != len(current):
+            self.async_set_updated_data(filtered)
 
     async def async_refresh_parcel(self, tracking_number: str) -> None:
         """Refresh a single parcel when courier API supports it.

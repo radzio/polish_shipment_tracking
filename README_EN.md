@@ -102,6 +102,17 @@ The integration creates one `sensor` per active (not delivered) shipment.
   - event timestamps
   - pickup point details
 
+## Ignoring shipments
+
+A shipment that will never arrive (e.g. the sender generated a new label and the old one is still in the carrier's system) can be hidden. This works for every carrier.
+
+- **From the card:** open the shipment details and click the crossed-out eye icon in the header, then click it again to confirm.
+- **With an action:** `polish_shipment_tracking.ignore_shipment` with the `tracking_number` field.
+
+An ignored shipment disappears from every account (including its Allegro copy) and stays hidden across restarts. The list of ignored shipments is in the `ignored_shipments` attribute of the "Active shipments" sensor.
+
+To bring a shipment back, call `polish_shipment_tracking.unignore_shipment` with the same `tracking_number`. An entry is removed from the list automatically once the carrier has not returned the shipment for 30 days.
+
 ## Events (custom)
 
 The integration fires events on the `hass.bus`:

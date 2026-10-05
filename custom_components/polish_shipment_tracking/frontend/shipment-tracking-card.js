@@ -40,6 +40,8 @@ const CARD_TRANSLATIONS = {
     "dialog.show_entity": "Show entity",
     "dialog.refresh_shipment": "Refresh shipment",
     "dialog.manage_shipment": "Manage shipment",
+    "dialog.ignore_shipment": "Ignore shipment",
+    "dialog.ignore_confirm": "Click again to hide this shipment",
     "dialog.live_tracking": "Track courier live",
     "dialog.weight": "Weight",
     "dialog.package_count": "Packages",
@@ -100,6 +102,8 @@ const CARD_TRANSLATIONS = {
     "dialog.show_entity": "Pokaż encję",
     "dialog.refresh_shipment": "Odśwież przesyłkę",
     "dialog.manage_shipment": "Zarządzaj przesyłką",
+    "dialog.ignore_shipment": "Ignoruj przesyłkę",
+    "dialog.ignore_confirm": "Kliknij ponownie, aby ukryć przesyłkę",
     "dialog.live_tracking": "Śledź kuriera na żywo",
     "dialog.weight": "Waga",
     "dialog.package_count": "Liczba paczek",
@@ -365,6 +369,7 @@ class ShipmentTrackingCard extends HTMLElement {
             justify-content: center; transition: color 0.2s ease; outline: none;
           }
           .header-icon-btn:hover { color: var(--primary-text-color); }
+          .header-icon-btn.confirm, .header-icon-btn.confirm:hover { color: var(--error-color, #db4437); }
           
           .modal-content { 
             padding: 20px; overflow-y: auto; flex: 1; 
@@ -573,6 +578,7 @@ class ShipmentTrackingCard extends HTMLElement {
 
   _closeDialog() {
     this._openDialogEntityId = null;
+    this._ignoreArmedEntityId = null;
     this.querySelector('#modal-overlay')?.classList.remove('open');
   }
 
@@ -866,6 +872,11 @@ class ShipmentTrackingCard extends HTMLElement {
     if (refreshShipmentButtonId) {
       headerActionsHtml += `<button class="header-icon-btn" data-refresh-button="${refreshShipmentButtonId}" title="${this._localize("dialog.refresh_shipment")}"><ha-icon icon="mdi:refresh"></ha-icon></button>`;
     }
+    if (attrs.tracking_number && this._hass.services?.polish_shipment_tracking?.ignore_shipment) {
+      // Two clicks: the first arms the button, the second hides the shipment.
+      const armed = this._ignoreArmedEntityId === entityId;
+      headerActionsHtml += `<button class="header-icon-btn ${armed ? 'confirm' : ''}" data-ignore-button="${attrs.tracking_number}" title="${this._localize(armed ? "dialog.ignore_confirm" : "dialog.ignore_shipment")}"><ha-icon icon="${armed ? 'mdi:eye-off' : 'mdi:eye-off-outline'}"></ha-icon></button>`;
+    }
     const headerDynamicContainer = this.querySelector('#header-dynamic-actions');
     if (headerDynamicContainer) {
       headerDynamicContainer.innerHTML = headerActionsHtml;
@@ -899,6 +910,22 @@ class ShipmentTrackingCard extends HTMLElement {
                 refreshBtn.classList.remove('loading');
             }, 400);
         }
+      });
+    }
+
+    const ignoreBtn = this.querySelector('[data-ignore-button]');
+    if (ignoreBtn) {
+      ignoreBtn.addEventListener('click', async () => {
+        if (this._ignoreArmedEntityId !== entityId) {
+          this._ignoreArmedEntityId = entityId;
+          this.openDialog(entityId, { reopen: false });
+          return;
+        }
+        this._ignoreArmedEntityId = null;
+        this._closeDialog();
+        await this._hass.callService("polish_shipment_tracking", "ignore_shipment", {
+          tracking_number: ignoreBtn.getAttribute('data-ignore-button'),
+        });
       });
     }
 

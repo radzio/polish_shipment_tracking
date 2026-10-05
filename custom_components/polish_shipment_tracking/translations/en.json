@@ -76,5 +76,27 @@
         "name": "Active shipments"
       }
     }
+  },
+  "services": {
+    "ignore_shipment": {
+      "name": "Ignore shipment",
+      "description": "Hides a shipment on every account, e.g. a label that will never be shipped. It stays hidden until it is un-ignored.",
+      "fields": {
+        "tracking_number": {
+          "name": "Tracking number",
+          "description": "Tracking number of the shipment to hide."
+        }
+      }
+    },
+    "unignore_shipment": {
+      "name": "Stop ignoring shipment",
+      "description": "Tracks a previously ignored shipment again.",
+      "fields": {
+        "tracking_number": {
+          "name": "Tracking number",
+          "description": "Tracking number of the ignored shipment."
+        }
+      }
+    }
   }
 }

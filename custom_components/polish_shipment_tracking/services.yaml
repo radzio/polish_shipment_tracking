@@ -1,0 +1,15 @@
+ignore_shipment:
+  fields:
+    tracking_number:
+      required: true
+      example: "1050799150127U"
+      selector:
+        text:
+
+unignore_shipment:
+  fields:
+    tracking_number:
+      required: true
+      example: "1050799150127U"
+      selector:
+        text:

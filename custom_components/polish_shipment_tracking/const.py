@@ -5,6 +5,12 @@ from typing import Final
 DOMAIN = "polish_shipment_tracking"
 PLATFORMS = ["sensor", "button"]
 
+# hass.data[DOMAIN] key of the shared IgnoredShipments list.
+DATA_IGNORED = "_ignored"
+SERVICE_IGNORE_SHIPMENT = "ignore_shipment"
+SERVICE_UNIGNORE_SHIPMENT = "unignore_shipment"
+ATTR_TRACKING_NUMBER = "tracking_number"
+
 CONF_COURIER = "courier"
 CONF_PHONE = "phone"
 CONF_EMAIL = "email"

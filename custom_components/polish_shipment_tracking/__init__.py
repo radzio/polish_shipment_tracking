@@ -3,15 +3,27 @@ from __future__ import annotations
 import logging
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant, CoreState, EVENT_HOMEASSISTANT_STARTED, callback
+from homeassistant.core import HomeAssistant, CoreState, EVENT_HOMEASSISTANT_STARTED, ServiceCall, callback
+from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import entity_registry as er
 from homeassistant.components import websocket_api
 import voluptuous as vol
 
-from .const import DOMAIN, PLATFORMS, INTEGRATION_VERSION, CONF_COURIER
+from .const import (
+    ATTR_TRACKING_NUMBER,
+    CONF_COURIER,
+    DATA_IGNORED,
+    DOMAIN,
+    INTEGRATION_VERSION,
+    PLATFORMS,
+    SERVICE_IGNORE_SHIPMENT,
+    SERVICE_UNIGNORE_SHIPMENT,
+)
 from .frontend import JSModuleRegistration
 from .coordinator import ShipmentCoordinator
+from .helpers import get_parcel_id
+from .ignored import IgnoredShipments, normalize_tracking_number
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -45,7 +57,55 @@ CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 async def async_setup(hass: HomeAssistant, config: dict):
     """Set up the Shipment Tracking integration."""
     hass.data.setdefault(DOMAIN, {})
-    
+
+    ignored = IgnoredShipments(hass)
+    await ignored.async_load()
+    hass.data[DOMAIN][DATA_IGNORED] = ignored
+
+    def _coordinators() -> list[ShipmentCoordinator]:
+        return [c for c in hass.data[DOMAIN].values() if isinstance(c, ShipmentCoordinator)]
+
+    def _tracking_number(call: ServiceCall) -> str:
+        tracking_number = call.data[ATTR_TRACKING_NUMBER].strip()
+        if not normalize_tracking_number(tracking_number):
+            raise ServiceValidationError("tracking_number is empty")
+        return tracking_number
+
+    async def async_ignore_shipment(call: ServiceCall) -> None:
+        """Hide a shipment on every account until it is un-ignored."""
+        tracking_number = _tracking_number(call)
+        key = normalize_tracking_number(tracking_number)
+        courier = next(
+            (
+                c.courier
+                for c in _coordinators()
+                for parcel in (c.data or [])
+                if normalize_tracking_number(get_parcel_id(parcel, c.courier)) == key
+            ),
+            None,
+        )
+        if not ignored.async_ignore(tracking_number, courier):
+            return
+        for coordinator in _coordinators():
+            coordinator.async_apply_ignore_list()
+
+    async def async_unignore_shipment(call: ServiceCall) -> None:
+        """Track an ignored shipment again."""
+        tracking_number = _tracking_number(call)
+        if not ignored.async_unignore(tracking_number):
+            return
+        # The parcel was dropped from coordinator data, so it has to be refetched.
+        for coordinator in _coordinators():
+            await coordinator.async_request_refresh()
+
+    service_schema = vol.Schema({vol.Required(ATTR_TRACKING_NUMBER): cv.string})
+    hass.services.async_register(
+        DOMAIN, SERVICE_IGNORE_SHIPMENT, async_ignore_shipment, schema=service_schema
+    )
+    hass.services.async_register(
+        DOMAIN, SERVICE_UNIGNORE_SHIPMENT, async_unignore_shipment, schema=service_schema
+    )
+
     async def async_register_frontend(_event=None) -> None:
         """Register the JavaScript modules after Home Assistant startup."""
         module_register = JSModuleRegistration(hass)

@@ -105,6 +105,17 @@ Integracja tworzy encję `sensor` dla każdej aktywnej (niedostarczonej) przesy�
 
 
 
+## Ignorowanie przesyłek
+
+Przesyłkę, która nigdy nie dotrze (np. nadawca wygenerował nową etykietę, a stara została w systemie przewoźnika), można ukryć. Działa to dla wszystkich przewoźników.
+
+- **Z karty:** otwórz szczegóły przesyłki i kliknij ikonę przekreślonego oka w nagłówku, a następnie kliknij ją ponownie, aby potwierdzić.
+- **Akcją:** `polish_shipment_tracking.ignore_shipment` z polem `tracking_number`.
+
+Zignorowana przesyłka znika ze wszystkich kont (także jej kopia z Allegro) i nie wraca po restarcie. Lista zignorowanych przesyłek jest w atrybucie `ignored_shipments` sensora „Aktywne przesyłki”.
+
+Aby przywrócić przesyłkę, wywołaj `polish_shipment_tracking.unignore_shipment` z tym samym `tracking_number`. Wpis jest usuwany z listy automatycznie, gdy przewoźnik nie zwraca przesyłki od 30 dni.
+
 ## Zdarzenia (custom events)
 
 Integracja publikuje zdarzenia na magistrali `hass.bus`:

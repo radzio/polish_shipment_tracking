@@ -13,7 +13,7 @@ from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_registry import async_get as async_get_entity_registry
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN, INTEGRATION_VERSION, CONF_PHONE, CONF_EMAIL, CONF_ALLEGRO_CONTEXT
+from .const import DOMAIN, INTEGRATION_VERSION, CONF_PHONE, CONF_EMAIL, CONF_ALLEGRO_CONTEXT, DATA_IGNORED
 from .coordinator import ShipmentCoordinator
 from .helpers import (
     get_parcel_id,
@@ -527,3 +527,15 @@ class ActiveShipmentsSensor(SensorEntity):
                 if not is_delivered(parcel, coordinator.courier):
                     total += 1
         return total
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Expose the ignore list so it can be reviewed and un-ignored."""
+        ignored = self.hass.data.get(DOMAIN, {}).get(DATA_IGNORED)
+        return {"ignored_shipments": ignored.as_list() if ignored else []}
+
+    async def async_added_to_hass(self) -> None:
+        """Refresh the attribute whenever the ignore list changes."""
+        ignored = self.hass.data.get(DOMAIN, {}).get(DATA_IGNORED)
+        if ignored is not None:
+            self.async_on_remove(ignored.async_add_listener(self.async_write_ha_state))

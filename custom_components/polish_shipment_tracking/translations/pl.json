@@ -76,5 +76,27 @@
         "name": "Aktywne przesyłki"
       }
     }
+  },
+  "services": {
+    "ignore_shipment": {
+      "name": "Ignoruj przesyłkę",
+      "description": "Ukrywa przesyłkę na wszystkich kontach, np. etykietę, która nigdy nie zostanie nadana. Pozostaje ukryta do czasu cofnięcia ignorowania.",
+      "fields": {
+        "tracking_number": {
+          "name": "Numer przesyłki",
+          "description": "Numer przesyłki do ukrycia."
+        }
+      }
+    },
+    "unignore_shipment": {
+      "name": "Przestań ignorować przesyłkę",
+      "description": "Ponownie śledzi wcześniej zignorowaną przesyłkę.",
+      "fields": {
+        "tracking_number": {
+          "name": "Numer przesyłki",
+          "description": "Numer zignorowanej przesyłki."
+        }
+      }
+    }
   }
 }
