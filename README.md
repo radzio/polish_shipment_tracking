@@ -114,7 +114,7 @@ Przesyłkę, która nigdy nie dotrze (np. nadawca wygenerował nową etykietę, 
 
 Zignorowana przesyłka znika ze wszystkich kont (także jej kopia z Allegro) i nie wraca po restarcie. Lista zignorowanych przesyłek jest w atrybucie `ignored_shipments` sensora „Aktywne przesyłki”.
 
-Aby przywrócić przesyłkę, wywołaj `polish_shipment_tracking.unignore_shipment` z tym samym `tracking_number`. Wpis jest usuwany z listy automatycznie, gdy przewoźnik nie zwraca przesyłki od 30 dni.
+Aby przywrócić przesyłkę, wywołaj `polish_shipment_tracking.unignore_shipment` z tym samym `tracking_number`. Wpis znika z listy sam: gdy konto, które zwracało przesyłkę, przestaje ją zwracać, wpis jest usuwany po 24 godzinach (zwłoka chroni przed chwilowo pustą odpowiedzią przewoźnika).
 
 ## Zdarzenia (custom events)
 

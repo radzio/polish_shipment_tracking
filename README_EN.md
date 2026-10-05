@@ -111,7 +111,7 @@ A shipment that will never arrive (e.g. the sender generated a new label and the
 
 An ignored shipment disappears from every account (including its Allegro copy) and stays hidden across restarts. The list of ignored shipments is in the `ignored_shipments` attribute of the "Active shipments" sensor.
 
-To bring a shipment back, call `polish_shipment_tracking.unignore_shipment` with the same `tracking_number`. An entry is removed from the list automatically once the carrier has not returned the shipment for 30 days.
+To bring a shipment back, call `polish_shipment_tracking.unignore_shipment` with the same `tracking_number`. An entry leaves the list on its own: once the account that used to return the shipment stops returning it, the entry is removed after 24 hours (the delay guards against a carrier briefly answering with an empty list).
 
 ## Events (custom)
 

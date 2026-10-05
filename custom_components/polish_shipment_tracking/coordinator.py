@@ -30,6 +30,7 @@ from .const import (
 )
 from .helpers import get_parcel_detail_id, get_parcel_id
 from .helpers import is_archived, is_delivered
+from .ignored import normalize_tracking_number
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -164,6 +165,7 @@ class ShipmentCoordinator(DataUpdateCoordinator):
         """Fetch data from API."""
         try:
             parcels = await self._fetch_parcels_with_retry()
+            self._reconcile_ignore_list(parcels)
             filtered = self._filter_active_parcels(parcels)
             return filtered
         except Exception as err:
@@ -644,13 +646,24 @@ class ShipmentCoordinator(DataUpdateCoordinator):
         for parcel in parcels:
             if not isinstance(parcel, dict) or is_delivered(parcel, self.courier):
                 continue
-            if ignored is not None:
-                pid = get_parcel_id(parcel, self.courier)
-                if ignored.is_ignored(pid):
-                    ignored.mark_seen(pid)
-                    continue
+            if ignored is not None and ignored.is_ignored(get_parcel_id(parcel, self.courier)):
+                continue
             kept.append(parcel)
         return kept
+
+    def _reconcile_ignore_list(self, parcels) -> None:
+        """Tell the ignore list which active shipments this account returned."""
+        ignored = self.hass.data.get(DOMAIN, {}).get(DATA_IGNORED)
+        if ignored is None or not isinstance(parcels, list):
+            return
+        ignored.async_reconcile(
+            self.entry.entry_id,
+            {
+                normalize_tracking_number(get_parcel_id(parcel, self.courier))
+                for parcel in parcels
+                if isinstance(parcel, dict) and not is_delivered(parcel, self.courier)
+            },
+        )
 
     @callback
     def async_apply_ignore_list(self) -> None:

@@ -14,10 +14,14 @@ STORAGE_VERSION = 1
 STORAGE_KEY = f"{DOMAIN}.ignored"
 SAVE_DELAY = 10
 
-# An ignored shipment is forgotten once no courier has returned it for this
-# long. The window is deliberately generous: an account that silently returns
-# an empty list for a while (e.g. a disabled DPD user) must not wipe the list
-# and resurrect every ignored shipment when it comes back.
+# An ignored shipment is forgotten once an account that used to return it has
+# kept answering without it for this long. Not instantly: an account can
+# answer "no shipments" by mistake for hours (a disabled DPD user returns an
+# empty list until its 12h token expires), and dropping the entry then would
+# resurrect the shipment as soon as the account recovers.
+ABSENT_GRACE_SECONDS = 24 * 3600
+# Backstop for entries no account can vouch for any more (account removed,
+# or ignored before any account returned it).
 PRUNE_AFTER_SECONDS = 30 * 24 * 3600
 # Persisting "still seen" on every 15-min poll would be pointless disk churn.
 SEEN_WRITE_INTERVAL_SECONDS = 6 * 3600
@@ -52,20 +56,52 @@ class IgnoredShipments:
         return normalize_tracking_number(tracking_number) in self._items
 
     @callback
-    def mark_seen(self, tracking_number: Any) -> None:
-        """Record that a courier still returns this ignored shipment."""
-        item = self._items.get(normalize_tracking_number(tracking_number))
-        if item is None:
-            return
+    def async_reconcile(self, entry_id: str, returned: set[str]) -> None:
+        """Update the list from one account's successful fetch.
+
+        `returned` holds the normalized numbers of the active shipments the
+        account just returned. An ignored shipment this account used to return
+        and no longer does is forgotten after ABSENT_GRACE_SECONDS; another
+        account still returning it keeps it on the list.
+        """
         now = time.time()
-        if now - item.get("last_seen", 0) < SEEN_WRITE_INTERVAL_SECONDS:
-            return
-        item["last_seen"] = now
-        self._schedule_save()
+        save = False
+        forgotten = []
+        for key, item in self._items.items():
+            sources = item.setdefault("sources", [])
+            if key in returned:
+                if entry_id not in sources:
+                    sources.append(entry_id)
+                    save = True
+                if item.pop("absent_since", None) is not None:
+                    save = True
+                if now - item.get("last_seen", 0) >= SEEN_WRITE_INTERVAL_SECONDS:
+                    item["last_seen"] = now
+                    save = True
+            elif entry_id in sources:
+                if "absent_since" not in item:
+                    item["absent_since"] = now
+                    save = True
+                elif now - item["absent_since"] >= ABSENT_GRACE_SECONDS:
+                    forgotten.append(key)
+        for key in forgotten:
+            del self._items[key]
+        if self._prune() or forgotten:
+            self._changed()
+        elif save:
+            self._schedule_save()
 
     @callback
-    def async_ignore(self, tracking_number: Any, courier: str | None = None) -> bool:
-        """Add a shipment to the list. Return False if it was already there."""
+    def async_ignore(
+        self,
+        tracking_number: Any,
+        courier: str | None = None,
+        sources: list[str] | None = None,
+    ) -> bool:
+        """Add a shipment to the list. Return False if it was already there.
+
+        `sources` are the config entries currently returning the shipment.
+        """
         key = normalize_tracking_number(tracking_number)
         if not key or key in self._items:
             return False
@@ -75,6 +111,7 @@ class IgnoredShipments:
             "courier": courier,
             "ignored_at": now,
             "last_seen": now,
+            "sources": list(sources or []),
         }
         self._prune()
         self._changed()

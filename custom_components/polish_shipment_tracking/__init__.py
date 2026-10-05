@@ -75,16 +75,17 @@ async def async_setup(hass: HomeAssistant, config: dict):
         """Hide a shipment on every account until it is un-ignored."""
         tracking_number = _tracking_number(call)
         key = normalize_tracking_number(tracking_number)
-        courier = next(
-            (
-                c.courier
-                for c in _coordinators()
+        holders = [
+            c
+            for c in _coordinators()
+            if any(
+                normalize_tracking_number(get_parcel_id(parcel, c.courier)) == key
                 for parcel in (c.data or [])
-                if normalize_tracking_number(get_parcel_id(parcel, c.courier)) == key
-            ),
-            None,
-        )
-        if not ignored.async_ignore(tracking_number, courier):
+            )
+        ]
+        courier = holders[0].courier if holders else None
+        sources = [c.entry.entry_id for c in holders]
+        if not ignored.async_ignore(tracking_number, courier, sources):
             return
         for coordinator in _coordinators():
             coordinator.async_apply_ignore_list()
