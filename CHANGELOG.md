@@ -4,6 +4,10 @@ Changes in this fork of [stirante/polish_shipment_tracking](https://github.com/s
 
 The same notes are published with each [GitHub release](https://github.com/radzio/polish_shipment_tracking/releases), which is where HACS reads them from.
 
+## 1.8.2 – 2026-10-06
+
+- Allegro: a package waiting to be handed to the carrier (status `PENDING`, "Przesyłka oczekuje na nadanie") is shown as "created" instead of "unknown".
+
 ## 1.8.1 – 2026-10-05
 
 - **Ignore list cleans itself up.** An ignored shipment is removed from the list 24 hours after the account that used to return it stops returning it. If another account still returns it, it stays ignored. Entries no account can vouch for are still dropped after 30 days.

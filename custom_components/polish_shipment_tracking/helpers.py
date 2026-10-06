@@ -346,8 +346,13 @@ _STATUS_MAP = {
         "UNAVAILABLE": "exception",
     },
     "allegro": {
-        # delivery.status values from the /packages feed (same enum as the
-        # myorders status.primary.status field).
+        # delivery.status values from the /packages feed. The myorders feed
+        # names the same stages differently (e.g. /packages PENDING is
+        # status.primary.status IN_PREPARATION and delivery.status
+        # WAYBILL_CREATED there), so both vocabularies are listed.
+        "PENDING": "created",
+        "IN_PREPARATION": "created",
+        "WAYBILL_CREATED": "created",
         "NEW": "created",
         "BOUGHT": "created",
         "PAID": "created",
