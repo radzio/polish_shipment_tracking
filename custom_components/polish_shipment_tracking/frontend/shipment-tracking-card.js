@@ -10,6 +10,12 @@ const CARD_TRANSLATIONS = {
     "editor.title": "Title",
     "editor.show_list_pickup_code": "Show pickup code in list",
     "editor.show_list_location": "Show pickup point in list",
+    "editor.show_list_delivery_type": "Show delivery type in list",
+    "editor.show_dialog_delivery_type": "Show delivery type in details",
+    "dialog.delivery_type": "Delivery",
+    "delivery_type.home": "Home address",
+    "delivery_type.parcel_locker": "Parcel locker",
+    "delivery_type.pickup_point": "Pickup point",
     "editor.show_dialog_sender": "Show sender in details",
     "editor.show_dialog_account_contact": "Show shipment account in details",
     "editor.show_dialog_recipient": "Show recipient in details",
@@ -72,6 +78,12 @@ const CARD_TRANSLATIONS = {
     "editor.title": "Tytuł",
     "editor.show_list_pickup_code": "Pokaż kod odbioru na liście",
     "editor.show_list_location": "Pokaż lokalizację na liście",
+    "editor.show_list_delivery_type": "Pokaż rodzaj dostawy na liście",
+    "editor.show_dialog_delivery_type": "Pokaż rodzaj dostawy w szczegółach",
+    "dialog.delivery_type": "Dostawa",
+    "delivery_type.home": "Pod adres",
+    "delivery_type.parcel_locker": "Automat paczkowy",
+    "delivery_type.pickup_point": "Punkt odbioru",
     "editor.show_dialog_sender": "Pokaż nadawcę w szczegółach",
     "editor.show_dialog_account_contact": "Pokaż dane konta przesyłki w szczegółach",
     "editor.show_dialog_recipient": "Pokaż odbiorcę w szczegółach",
@@ -296,6 +308,11 @@ class ShipmentTrackingCard extends HTMLElement {
             -webkit-box-orient: vertical;
             overflow: hidden;
           }
+          .delivery-type-line {
+            display: flex; align-items: center; gap: 4px;
+            font-size: 0.75rem; color: var(--secondary-text-color);
+          }
+          .delivery-type-line ha-icon { --mdc-icon-size: 14px; }
           .status-badge {
             padding: 6px 10px;
             border-radius: 20px;
@@ -574,6 +591,17 @@ class ShipmentTrackingCard extends HTMLElement {
 
   _isEnabled(optionName) {
     return this.config?.[optionName] !== false;
+  }
+
+  _getDeliveryType(attrs) {
+    const icons = {
+      home: "mdi:home-outline",
+      parcel_locker: "mdi:locker-multiple",
+      pickup_point: "mdi:store-marker-outline",
+    };
+    const icon = icons[attrs?.delivery_type];
+    if (!icon) return null;
+    return { icon, label: this._localize(`delivery_type.${attrs.delivery_type}`) };
   }
 
   _closeDialog() {
@@ -937,6 +965,10 @@ class ShipmentTrackingCard extends HTMLElement {
     }
     if (attrs.courier) {
       infoHtml += `<div class="modal-info-block-row"><strong>${this._localize("dialog.courier_name")}:</strong> <span class="val">${attrs.courier}</span></div>`;
+    }
+    const dialogDeliveryType = this._isEnabled("show_dialog_delivery_type") ? this._getDeliveryType(attrs) : null;
+    if (dialogDeliveryType) {
+      infoHtml += `<div class="modal-info-block-row"><strong>${this._localize("dialog.delivery_type")}:</strong> <span class="val">${dialogDeliveryType.label}</span></div>`;
     }
     if (this._isEnabled("show_dialog_sender") && (attrs.sender || attrs.sender_name)) {
       infoHtml += `<div class="modal-info-block-row"><strong>${this._localize("dialog.sender")}:</strong> <span class="val">${attrs.sender || attrs.sender_name}</span></div>`;
@@ -1319,13 +1351,15 @@ class ShipmentTrackingCard extends HTMLElement {
           attrs.location || '',
           attrs.current_location || '',
           attrs.open_code || '',
+          attrs.delivery_type || '',
         attrs.pickup_code || ''
       ].join('|'));
     });
 
     const configSignature = [
       this._isEnabled("show_list_pickup_code"),
-      this._isEnabled("show_list_location")
+      this._isEnabled("show_list_location"),
+      this._isEnabled("show_list_delivery_type")
     ].join('|');
     const signature = `${configSignature}||${signatureParts.join('||')}`;
     if (this._lastSignature === signature) {
@@ -1382,6 +1416,10 @@ class ShipmentTrackingCard extends HTMLElement {
         const pickupCode = attributes.open_code || attributes.pickup_code || '';
 
         let extraInfoHtml = '';
+        const listDeliveryType = this._isEnabled("show_list_delivery_type") ? this._getDeliveryType(attributes) : null;
+        if (listDeliveryType) {
+            extraInfoHtml += `<div class="delivery-type-line"><ha-icon icon="${listDeliveryType.icon}"></ha-icon><span>${listDeliveryType.label}</span></div>`;
+        }
         if (this._isEnabled("show_list_pickup_code") && pickupCode) {
             extraInfoHtml += `<div class="pickup-code">${pickupCodeLabel}: ${pickupCode}</div>`;
         }
@@ -1539,6 +1577,16 @@ class ShipmentTrackingCardEditor extends HTMLElement {
         name: "show_dialog_entity_button",
         label: this._localize("editor.show_dialog_entity_button"),
         selector: { boolean: {} }
+      },
+      {
+        name: "show_list_delivery_type",
+        label: this._localize("editor.show_list_delivery_type"),
+        selector: { boolean: {} }
+      },
+      {
+        name: "show_dialog_delivery_type",
+        label: this._localize("editor.show_dialog_delivery_type"),
+        selector: { boolean: {} }
       }
     ];
 
@@ -1558,7 +1606,9 @@ class ShipmentTrackingCardEditor extends HTMLElement {
       "show_dialog_qr_code",
       "show_dialog_timeline",
       "show_dialog_manage_button",
-      "show_dialog_entity_button"
+      "show_dialog_entity_button",
+      "show_list_delivery_type",
+      "show_dialog_delivery_type"
     ];
     booleanDefaults.forEach((key) => {
       if (data[key] === undefined) data[key] = true;

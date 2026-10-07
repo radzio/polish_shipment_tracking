@@ -93,6 +93,7 @@ Sensor entities should appear after the first refresh.
 
 The integration creates one `sensor` per active (not delivered) shipment.
 
+- `delivery_type` attribute: where the shipment is going – `home`, `parcel_locker`, `pickup_point` or `unknown`; the same values for every carrier
 - unique_id: `<courier>_<shipment_id>`
 - sensor state: normalized status (for example: in_transport)
 - attributes: carrier-specific, commonly:

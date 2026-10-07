@@ -16,6 +16,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from .const import DOMAIN, INTEGRATION_VERSION, CONF_PHONE, CONF_EMAIL, CONF_ALLEGRO_CONTEXT, DATA_IGNORED
 from .coordinator import ShipmentCoordinator
 from .helpers import (
+    get_delivery_type,
     get_parcel_id,
     get_raw_status,
     is_delivered,
@@ -236,6 +237,8 @@ class ShipmentSensor(CoordinatorEntity[ShipmentCoordinator], SensorEntity):
         raw_status = get_raw_status(self.parcel_data, self._courier)
         attrs["status_raw"] = raw_status
         attrs["status_key"] = normalize_status(raw_status, self._courier)
+        # home / parcel_locker / pickup_point / unknown, same values for every courier.
+        attrs["delivery_type"] = get_delivery_type(self.parcel_data, self._courier)
         
         # Include raw response for the custom card
         if "_raw_response" in self.parcel_data:
@@ -422,6 +425,8 @@ class ShipmentSensor(CoordinatorEntity[ShipmentCoordinator], SensorEntity):
             "delivery_title": "delivery_title",
             "pickup_valid_to": "pickup_deadline",
             "order_id": "order_id",
+            "delivery_name": "delivery_method",
+            "pickup_point_name": "pickup_point_name",
             # Pickup-ready enrichment (from myorders): numeric code + phone + QR.
             "pickup_code": "pickup_code",
             "pickup_phone": "phone_number",

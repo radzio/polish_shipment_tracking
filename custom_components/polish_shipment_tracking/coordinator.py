@@ -416,6 +416,12 @@ class ShipmentCoordinator(DataUpdateCoordinator):
             # Seller is the "sender" of an Allegro purchase.
             if info.get("seller"):
                 package["sender"] = info["seller"]
+            # Delivery method ("Allegro Automat ORLEN Paczka") and pickup point
+            # name: the only place Allegro says where the package is going.
+            if info.get("delivery_name"):
+                package["delivery_name"] = info["delivery_name"]
+            if info.get("point_name"):
+                package["pickup_point_name"] = info["point_name"]
             if info.get("code"):
                 package["pickup_code"] = info["code"]
             if info.get("phone"):

@@ -476,3 +476,134 @@ def is_archived(data: dict, courier: str) -> bool:
     if courier == "pocztex":
         return data.get("archived") is True
     return False
+
+
+# --- Delivery destination -----------------------------------------------------
+
+DELIVERY_HOME = "home"
+DELIVERY_PARCEL_LOCKER = "parcel_locker"
+DELIVERY_PICKUP_POINT = "pickup_point"
+DELIVERY_UNKNOWN = "unknown"
+
+# Checked in this order: a locker is also "a point", and names such as
+# "Allegro Automat ORLEN Paczka" or "DPD Pickup Station" must land on locker.
+_LOCKER_WORDS = ("automat", "paczkomat", "locker", "apm", "appkomat", "station", "box")
+_POINT_WORDS = (
+    "punkt", "pudo", "pickup", "pick_up", "pick up", "point", "pop", "odbi",
+    "shop", "plac", "kiosk", "access",
+)
+_HOME_WORDS = ("kurier", "courier", "door", "drzwi", "home", "adres", "address")
+
+# Keys that may name the delivery method on couriers whose schema has not been
+# observed yet (Pocztex, UPS). Deliberately narrow: a wrong guess is worse than
+# "unknown".
+_GENERIC_TYPE_KEYS = (
+    "deliverytype", "deliverymethod", "deliveryform", "servicetype",
+    "pointtype", "pickuppointtype", "deliverypointtype",
+)
+
+
+def _classify_delivery_text(*values) -> str | None:
+    """Classify free text / enum values by keyword."""
+    text = " ".join(
+        " ".join(str(v) for v in value) if isinstance(value, (list, tuple)) else str(value)
+        for value in values
+        if value
+    ).lower().replace("ó", "o").replace("ł", "l")
+    if not text:
+        return None
+    for words, result in (
+        (_LOCKER_WORDS, DELIVERY_PARCEL_LOCKER),
+        (_POINT_WORDS, DELIVERY_PICKUP_POINT),
+        (_HOME_WORDS, DELIVERY_HOME),
+    ):
+        if any(word in text for word in words):
+            return result
+    return None
+
+
+def _scan_delivery_type_fields(data, depth: int = 0) -> str | None:
+    """Look for a recognisable delivery-method field in an unknown schema."""
+    if depth > 3 or not isinstance(data, dict):
+        return None
+    for key, value in data.items():
+        if isinstance(value, str) and key.lower() in _GENERIC_TYPE_KEYS:
+            result = _classify_delivery_text(value)
+            if result:
+                return result
+    for value in data.values():
+        if isinstance(value, dict):
+            result = _scan_delivery_type_fields(value, depth + 1)
+            if result:
+                return result
+    return None
+
+
+def get_delivery_type(parcel: dict, courier: str) -> str:
+    """Return where a shipment is delivered: home, parcel_locker, pickup_point.
+
+    Returns "unknown" when the courier's data does not say.
+    """
+    if not isinstance(parcel, dict):
+        return DELIVERY_UNKNOWN
+    result = None
+
+    if courier == "inpost":
+        point = parcel.get("pickUpPoint")
+        if isinstance(point, dict):
+            # type is a list such as ["parcel_locker"] or ["pop"].
+            result = _classify_delivery_text(point.get("type")) or DELIVERY_PARCEL_LOCKER
+        elif parcel.get("shipmentType") == "courier":
+            result = DELIVERY_HOME
+
+    elif courier == "dpd":
+        delivery = parcel.get("delivery")
+        if isinstance(delivery, dict):
+            result = _classify_delivery_text(delivery.get("method")) or _classify_delivery_text(
+                delivery.get("icon")
+            )
+
+    elif courier == "dhl":
+        locker = parcel.get("lockerInfo")
+        point = parcel.get("dhlPointInfo")
+        if isinstance(locker, dict) and locker.get("id"):
+            result = DELIVERY_PARCEL_LOCKER
+        elif isinstance(point, dict) and point.get("name"):
+            result = DELIVERY_PICKUP_POINT
+        else:
+            result = _classify_delivery_text(parcel.get("packageType"))
+
+    elif courier == "gls":
+        data = parcel.get("trackingShipment")
+        if not isinstance(data, dict):
+            data = parcel
+        result = {
+            "TO_DOOR": DELIVERY_HOME,
+            "APM": DELIVERY_PARCEL_LOCKER,
+            "PUDO": DELIVERY_PICKUP_POINT,
+        }.get(str(data.get("deliveryMethod") or "").upper())
+        if result is None:
+            shop = data.get("parcelShop")
+            shop_type = shop.get("parcelShopType") if isinstance(shop, dict) else None
+            result = _classify_delivery_text(shop_type or data.get("parcelShopType"))
+
+    elif courier == "allegro":
+        # delivery_name / pickup_point_name come from the myorders feed, e.g.
+        # "Allegro Automat ORLEN Paczka" / "Allegro Kurier DPD".
+        result = _classify_delivery_text(parcel.get("delivery_name")) or _classify_delivery_text(
+            parcel.get("pickup_point_name")
+        )
+        if result is None and parcel.get("pickup_point_name"):
+            result = DELIVERY_PICKUP_POINT
+        if result is None and parcel.get("delivery_name"):
+            # Named method without a pickup point: delivered to the address.
+            result = DELIVERY_HOME
+        if result is None:
+            result = _classify_delivery_text(parcel.get("delivery_subtitle"))
+
+    if result is None:
+        raw = parcel.get("_raw_response")
+        result = _scan_delivery_type_fields(raw if isinstance(raw, dict) else parcel)
+
+    return result or DELIVERY_UNKNOWN
+

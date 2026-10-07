@@ -75,7 +75,7 @@ class AllegroApi:
         return isinstance(result, dict)
 
     async def get_order_meta(self) -> dict:
-        """Return {waybillId: {seller, code, phone, qr}} from the myorders feed.
+        """Return {waybillId: {seller, delivery_name, point_name, code, phone, qr}} from myorders.
 
         The /packages feed lacks the seller (sender) and the numeric pickup
         code / QR; both live on the public ``myorders`` order feed. Index them
@@ -100,6 +100,9 @@ class AllegroApi:
         for group in data.get("orderGroups") or []:
             for order in group.get("myorders") or []:
                 seller = (order.get("seller") or {}).get("login")
+                delivery = order.get("delivery") or {}
+                delivery_name = delivery.get("name")
+                point_name = (delivery.get("generalDelivery") or {}).get("name")
                 primary = (order.get("status") or {}).get("primary") or {}
                 waybills_data = primary.get("waybillsData") or (
                     order.get("delivery") or {}
@@ -111,6 +114,10 @@ class AllegroApi:
                     entry = meta.setdefault(waybill_id, {})
                     if seller and not entry.get("seller"):
                         entry["seller"] = seller
+                    if delivery_name:
+                        entry["delivery_name"] = delivery_name
+                    if point_name:
+                        entry["point_name"] = point_name
                     pickup = waybill.get("pickupCode")
                     if isinstance(pickup, dict):
                         entry["code"] = pickup.get("code")

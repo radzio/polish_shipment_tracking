@@ -93,6 +93,7 @@ Po pierwszym odświeżeniu powinny pojawić się encje `sensor` dla przesyłek.
 
 Integracja tworzy encję `sensor` dla każdej aktywnej (niedostarczonej) przesyłki.
 
+- atrybut `delivery_type`: dokąd trafia przesyłka – `home` (pod adres), `parcel_locker` (automat paczkowy), `pickup_point` (punkt odbioru) albo `unknown`; te same wartości dla każdego przewoźnika
 - unique_id: `<courier>_<shipment_id>`
 - stan sensora: status znormalizowany (np. in_transport)
 - atrybuty: zależnie od przewoźnika, przykładowo:

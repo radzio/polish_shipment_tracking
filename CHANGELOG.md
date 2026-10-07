@@ -4,6 +4,13 @@ Changes in this fork of [stirante/polish_shipment_tracking](https://github.com/s
 
 The same notes are published with each [GitHub release](https://github.com/radzio/polish_shipment_tracking/releases), which is where HACS reads them from.
 
+## 1.9.0 – 2026-10-07
+
+- **Delivery type.** Every shipment sensor has a `delivery_type` attribute saying where the shipment is going: `home`, `parcel_locker`, `pickup_point`, or `unknown` when the carrier's data does not say. The values are the same for every carrier.
+- The card shows the delivery type in the list and in the shipment details; both can be switched off in the card editor.
+- Allegro: new `delivery_method` (for example "Allegro Automat ORLEN Paczka") and `pickup_point_name` attributes.
+- Coverage: InPost, DPD (courier delivery), DHL (courier delivery), GLS and Allegro are recognised. DPD and DHL locker/point deliveries are recognised on a best-effort basis, and Pocztex and UPS mostly report `unknown` for now, because no such shipment has been observed yet.
+
 ## 1.8.2 – 2026-10-06
 
 - Allegro: a package waiting to be handed to the carrier (status `PENDING`, "Przesyłka oczekuje na nadanie") is shown as "created" instead of "unknown".
