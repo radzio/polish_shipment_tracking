@@ -13,15 +13,18 @@ import voluptuous as vol
 from .const import (
     ATTR_TRACKING_NUMBER,
     CONF_COURIER,
+    DATA_FOLLOWED,
     DATA_IGNORED,
     DOMAIN,
     INTEGRATION_VERSION,
     PLATFORMS,
     SERVICE_IGNORE_SHIPMENT,
+    SERVICE_TRACK_SHIPMENT,
     SERVICE_UNIGNORE_SHIPMENT,
 )
 from .frontend import JSModuleRegistration
 from .coordinator import ShipmentCoordinator
+from .followed import FollowedShipments
 from .helpers import get_parcel_id
 from .ignored import IgnoredShipments, normalize_tracking_number
 
@@ -62,6 +65,10 @@ async def async_setup(hass: HomeAssistant, config: dict):
     await ignored.async_load()
     hass.data[DOMAIN][DATA_IGNORED] = ignored
 
+    followed = FollowedShipments(hass)
+    await followed.async_load()
+    hass.data[DOMAIN][DATA_FOLLOWED] = followed
+
     def _coordinators() -> list[ShipmentCoordinator]:
         return [c for c in hass.data[DOMAIN].values() if isinstance(c, ShipmentCoordinator)]
 
@@ -99,7 +106,19 @@ async def async_setup(hass: HomeAssistant, config: dict):
         for coordinator in _coordinators():
             await coordinator.async_request_refresh()
 
+    async def async_track_shipment(call: ServiceCall) -> None:
+        """Track a shipment the courier's list does not return (InPost)."""
+        tracking_number = "".join(_tracking_number(call).split())
+        # First account that can fetch it wins, so it is never followed twice.
+        for coordinator in _coordinators():
+            if await coordinator.async_track_shipment(tracking_number):
+                return
+        raise ServiceValidationError(f"No InPost account can fetch shipment {tracking_number}")
+
     service_schema = vol.Schema({vol.Required(ATTR_TRACKING_NUMBER): cv.string})
+    hass.services.async_register(
+        DOMAIN, SERVICE_TRACK_SHIPMENT, async_track_shipment, schema=service_schema
+    )
     hass.services.async_register(
         DOMAIN, SERVICE_IGNORE_SHIPMENT, async_ignore_shipment, schema=service_schema
     )

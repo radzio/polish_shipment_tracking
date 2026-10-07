@@ -97,6 +97,16 @@
           "description": "Tracking number of the ignored shipment."
         }
       }
+    },
+    "track_shipment": {
+      "name": "Track shipment by number",
+      "description": "Tracks an InPost shipment that the account's list does not return, for example a courier parcel redirected to another address. The number must belong to one of the configured InPost accounts.",
+      "fields": {
+        "tracking_number": {
+          "name": "Tracking number",
+          "description": "Tracking number of the InPost shipment."
+        }
+      }
     }
   }
 }

@@ -9,6 +9,9 @@ PLATFORMS = ["sensor", "button"]
 DATA_IGNORED = "_ignored"
 SERVICE_IGNORE_SHIPMENT = "ignore_shipment"
 SERVICE_UNIGNORE_SHIPMENT = "unignore_shipment"
+# hass.data[DOMAIN] key of the shared FollowedShipments store.
+DATA_FOLLOWED = "_followed"
+SERVICE_TRACK_SHIPMENT = "track_shipment"
 ATTR_TRACKING_NUMBER = "tracking_number"
 
 CONF_COURIER = "courier"

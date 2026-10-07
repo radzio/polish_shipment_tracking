@@ -106,6 +106,12 @@ Integracja tworzy encję `sensor` dla każdej aktywnej (niedostarczonej) przesy�
 
 
 
+## InPost: przesyłki przekierowane
+
+InPost usuwa przesyłkę kurierską z listy konta po przekierowaniu jej na inny adres, choć przesyłka nadal jest w drodze. Integracja śledzi wtedy taką przesyłkę po numerze aż do doręczenia, więc nie znika ona z Home Assistanta.
+
+Jeśli przesyłki nie było wcześniej w Home Assistancie, dodaj ją akcją `polish_shipment_tracking.track_shipment` z polem `tracking_number`. Numer musi należeć do jednego ze skonfigurowanych kont InPost.
+
 ## Ignorowanie przesyłek
 
 Przesyłkę, która nigdy nie dotrze (np. nadawca wygenerował nową etykietę, a stara została w systemie przewoźnika), można ukryć. Działa to dla wszystkich przewoźników.

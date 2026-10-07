@@ -4,6 +4,11 @@ Changes in this fork of [stirante/polish_shipment_tracking](https://github.com/s
 
 The same notes are published with each [GitHub release](https://github.com/radzio/polish_shipment_tracking/releases), which is where HACS reads them from.
 
+## 1.9.1 – 2026-10-07
+
+- **InPost: redirected parcels stay visible.** InPost removes a courier parcel from the account's list once it is redirected to another address, so it used to disappear from Home Assistant while still on its way. A parcel that leaves the list before delivery is now fetched by its number until it is delivered.
+- New action `polish_shipment_tracking.track_shipment`: track an InPost shipment by number when the account's list does not return it.
+
 ## 1.9.0 – 2026-10-07
 
 - **Delivery type.** Every shipment sensor has a `delivery_type` attribute saying where the shipment is going: `home`, `parcel_locker`, `pickup_point`, or `unknown` when the carrier's data does not say. The values are the same for every carrier.

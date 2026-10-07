@@ -97,6 +97,16 @@
           "description": "Numer zignorowanej przesyłki."
         }
       }
+    },
+    "track_shipment": {
+      "name": "Śledź przesyłkę po numerze",
+      "description": "Śledzi przesyłkę InPost, której nie ma na liście konta, np. przesyłkę kurierską przekierowaną na inny adres. Numer musi należeć do jednego ze skonfigurowanych kont InPost.",
+      "fields": {
+        "tracking_number": {
+          "name": "Numer przesyłki",
+          "description": "Numer przesyłki InPost."
+        }
+      }
     }
   }
 }

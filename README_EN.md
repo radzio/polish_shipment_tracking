@@ -103,6 +103,12 @@ The integration creates one `sensor` per active (not delivered) shipment.
   - event timestamps
   - pickup point details
 
+## InPost: redirected parcels
+
+InPost removes a courier parcel from the account's list once it is redirected to another address, although the parcel is still on its way. The integration then keeps tracking such a parcel by its number until delivery, so it does not disappear from Home Assistant.
+
+If the parcel was not in Home Assistant before, add it with the `polish_shipment_tracking.track_shipment` action and its `tracking_number`. The number must belong to one of the configured InPost accounts.
+
 ## Ignoring shipments
 
 A shipment that will never arrive (e.g. the sender generated a new label and the old one is still in the carrier's system) can be hidden. This works for every carrier.

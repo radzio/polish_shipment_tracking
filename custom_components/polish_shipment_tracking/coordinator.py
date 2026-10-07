@@ -12,6 +12,7 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .const import (
+    DATA_FOLLOWED,
     DATA_IGNORED,
     DOMAIN,
     CONF_TOKEN,
@@ -215,7 +216,7 @@ class ShipmentCoordinator(DataUpdateCoordinator):
                 recv = (p.get("receiver") or {}).get("phoneNumber") or {}
                 return str(recv.get("value")) in tracked_phones
 
-            return [
+            kept = [
                 p
                 for p in parcels
                 if not (
@@ -224,6 +225,8 @@ class ShipmentCoordinator(DataUpdateCoordinator):
                     and _owner_tracked_here(p)
                 )
             ]
+            listed = {p.get("shipmentNumber") for p in parcels if isinstance(p, dict)}
+            return kept + await self._fetch_followed_inpost_parcels(listed)
             
         elif self.courier == "dpd":
             data = await self.api.get_parcels()
@@ -399,6 +402,70 @@ class ShipmentCoordinator(DataUpdateCoordinator):
         )
         if filtered != (self.data or []):
             self.async_set_updated_data(filtered)
+
+    async def _fetch_followed_inpost_parcels(self, listed: set) -> list:
+        """Fetch InPost parcels that dropped out of the list before delivery.
+
+        InPost removes a courier parcel from the tracked list once it is
+        redirected to another address, yet it stays fetchable by number. Any
+        active parcel that vanishes from the list is followed individually
+        until it is delivered, shows up in the list again, or no longer exists.
+        """
+        followed = self.hass.data.get(DOMAIN, {}).get(DATA_FOLLOWED)
+        if followed is None:
+            return []
+        entry_id = self.entry.entry_id
+        previous = {
+            get_parcel_id(parcel, self.courier): parcel
+            for parcel in (self.data or [])
+            if isinstance(parcel, dict)
+        }
+        for number in previous:
+            if number and number not in listed and followed.follow(entry_id, number):
+                _LOGGER.info("InPost: %s left the parcel list, following it by number", number)
+
+        extra = []
+        for number in followed.numbers(entry_id):
+            if number in listed:
+                followed.unfollow(entry_id, number)
+                continue
+            try:
+                parcel = await self.api.get_parcel(number)
+            except Exception as err:
+                if "401" in str(err) or "unauthorized" in str(err).lower():
+                    raise  # let the caller refresh the token and retry
+                if "404" in str(err):
+                    followed.unfollow(entry_id, number)
+                elif number in previous:
+                    # Temporary failure: keep the last known state instead of
+                    # dropping and re-creating the sensor.
+                    extra.append(previous[number])
+                continue
+            if not isinstance(parcel, dict) or not parcel.get("shipmentNumber"):
+                continue
+            if is_delivered(parcel, self.courier):
+                followed.unfollow(entry_id, number)
+                continue
+            extra.append(parcel)
+        return extra
+
+    async def async_track_shipment(self, tracking_number: str) -> bool:
+        """Follow a shipment by number if this account can fetch it (InPost)."""
+        if self.courier != "inpost":
+            return False
+        followed = self.hass.data.get(DOMAIN, {}).get(DATA_FOLLOWED)
+        if followed is None:
+            return False
+        try:
+            parcel = await self._fetch_single_parcel_with_retry(tracking_number)
+        except Exception as err:
+            _LOGGER.debug("InPost: cannot fetch %s on %s: %s", tracking_number, self.entry.title, err)
+            return False
+        if not isinstance(parcel, dict) or not parcel.get("shipmentNumber"):
+            return False
+        followed.follow(self.entry.entry_id, str(parcel["shipmentNumber"]))
+        await self.async_request_refresh()
+        return True
 
     async def _enrich_allegro_order_meta(self, packages):
         """Attach seller (as sender) + pickup code/phone/QR to Allegro packages."""
