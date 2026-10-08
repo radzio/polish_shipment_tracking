@@ -4,6 +4,11 @@ Changes in this fork of [stirante/polish_shipment_tracking](https://github.com/s
 
 The same notes are published with each [GitHub release](https://github.com/radzio/polish_shipment_tracking/releases), which is where HACS reads them from.
 
+## 1.9.2 – 2026-10-08
+
+- **Allegro Business: pickup code, phone and QR code.** They are now read from version 2 of Allegro's packages feed, which covers business orders too. Previously only private-account orders had them.
+- Allegro Business packages also get the pickup point name, so `delivery_type` is recognised for them.
+
 ## 1.9.1 – 2026-10-07
 
 - **InPost: redirected parcels stay visible.** InPost removes a courier parcel from the account's list once it is redirected to another address, so it used to disappear from Home Assistant while still on its way. A parcel that leaves the list before delivery is now fetched by its number until it is delivered.

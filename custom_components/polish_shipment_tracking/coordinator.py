@@ -473,11 +473,21 @@ class ShipmentCoordinator(DataUpdateCoordinator):
             meta = await self.api.get_order_meta()
         except Exception as err:
             _LOGGER.debug("Allegro order-meta enrichment failed: %s", err)
-            return
+            meta = {}
+        # The v2 packages feed has the pickup code for every account context;
+        # myorders only covers private orders. Values from myorders win.
+        try:
+            pickup = await self.api.get_pickup_details()
+        except Exception as err:
+            _LOGGER.debug("Allegro pickup-details enrichment failed: %s", err)
+            pickup = {}
         for package in packages:
             if not isinstance(package, dict):
                 continue
-            info = meta.get(package.get("waybill"))
+            info = {
+                **{k: v for k, v in (pickup.get(package.get("waybill")) or {}).items() if v},
+                **{k: v for k, v in (meta.get(package.get("waybill")) or {}).items() if v},
+            }
             if not info:
                 continue
             # Seller is the "sender" of an Allegro purchase.

@@ -74,6 +74,46 @@ class AllegroApi:
         result = await self.get_parcels()
         return isinstance(result, dict)
 
+    async def get_pickup_details(self) -> dict:
+        """Return {waybill: {code, phone, qr, point_name}} from the v2 packages feed.
+
+        Version 2 of /packages carries what version 1 lacks: a DISPLAY_CODE
+        action with the pickup code, receiver phone and QR payload, plus the
+        pickup point name. Unlike the myorders feed it works for the business
+        context too, so it is the only source of pickup codes for Allegro
+        Business orders.
+        """
+        headers = self._headers()
+        headers["Accept"] = "application/vnd.allegro.internal.v2+json"
+        data = await request_json(
+            self._session,
+            "GET",
+            f"https://edge.{self._host}/packages",
+            headers=headers,
+            label="Allegro packages v2",
+        )
+        details: dict = {}
+        if not isinstance(data, dict):
+            return details
+        for package in data.get("packages") or []:
+            if not isinstance(package, dict) or not package.get("waybill"):
+                continue
+            entry: dict = {}
+            segment = (package.get("point") or {}).get("clickableTextSegment") or {}
+            point_name = (segment.get("params") or {}).get("pickupPointName")
+            if point_name:
+                entry["point_name"] = point_name
+            for action in package.get("actions") or []:
+                if not isinstance(action, dict) or action.get("type") != "DISPLAY_CODE":
+                    continue
+                params = action.get("params") or {}
+                entry["code"] = params.get("pickupCode")
+                entry["phone"] = params.get("phoneNumber")
+                entry["qr"] = params.get("qrCode") or params.get("barcodeValue")
+            if entry:
+                details[package["waybill"]] = entry
+        return details
+
     async def get_order_meta(self) -> dict:
         """Return {waybillId: {seller, delivery_name, point_name, code, phone, qr}} from myorders.
 
