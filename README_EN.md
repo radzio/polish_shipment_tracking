@@ -33,7 +33,6 @@ Home Assistant integration for tracking shipments from popular carriers in Polan
 | GLS | phone number + myGLS account password | ✅ | phone number |
 | Allegro | `QXLSESSID` session cookie + account context (private / business) | ✅ | cookie and context (optional custom label) |
 | UPS | pasted "Copy as cURL" of the `GetIncomingShipments` request from the ups.com dashboard | ✅ | pasted session |
-| ORLEN Paczka | no sign-in – add parcels by number with the `track_shipment` action | – | tracking number |
 
 ### Multiple accounts per carrier
 
@@ -103,14 +102,6 @@ The integration creates one `sensor` per active (not delivered) shipment.
   - event history
   - event timestamps
   - pickup point details
-
-## ORLEN Paczka
-
-ORLEN Paczka has no account parcel list, so parcels are added by number. Add the integration, pick the `orlen` courier (no sign-in), then call the `polish_shipment_tracking.track_shipment` action with the tracking number. The parcel is tracked until it is collected, for up to 30 days.
-
-Allegro parcels delivered to ORLEN Paczka lockers carry an Allegro number (`AD0…`) that ORLEN's tracker does not know – those already show up through the Allegro courier.
-
-The data comes from ORLEN Paczka's public tracker (no sender or point name); endpoint and status codes after [ha-orlen-paczka](https://github.com/ha-parcel-integrations/ha-orlen-paczka) (MIT).
 
 ## InPost: signing in
 

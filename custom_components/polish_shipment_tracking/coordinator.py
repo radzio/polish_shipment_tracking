@@ -146,11 +146,6 @@ class ShipmentCoordinator(DataUpdateCoordinator):
             )
             return api
 
-        elif self.courier == "orlen":
-            from .api_orlen import OrlenApi
-            # Public tracker, no account: parcels are followed by number.
-            return OrlenApi(self.session)
-
         elif self.courier == "ups":
             from .api_ups import UpsApi
             # Cookie/session based. Isolated session; cookies carried explicitly
@@ -393,42 +388,7 @@ class ShipmentCoordinator(DataUpdateCoordinator):
             self._persist_ups_cookies_if_changed()
             return data.get("shipments", []) if isinstance(data, dict) else []
 
-        elif self.courier == "orlen":
-            return await self._fetch_followed_orlen_parcels()
-
         return []
-
-    async def _fetch_followed_orlen_parcels(self) -> list:
-        """Fetch every ORLEN Paczka number added with track_shipment."""
-        from .api_orlen import OrlenUnknownParcel
-
-        followed = self.hass.data.get(DOMAIN, {}).get(DATA_FOLLOWED)
-        if followed is None:
-            return []
-        entry_id = self.entry.entry_id
-        previous = {
-            get_parcel_id(parcel, self.courier): parcel
-            for parcel in (self.data or [])
-            if isinstance(parcel, dict)
-        }
-        parcels = []
-        for number in followed.numbers(entry_id):
-            try:
-                parcel = await self.api.get_parcel(number)
-            except OrlenUnknownParcel:
-                # Accepted when added, unknown now: keep it until the follow expires.
-                parcels.append(previous.get(number) or {"number": number, "status": ""})
-                continue
-            except Exception as err:
-                _LOGGER.debug("ORLEN Paczka: fetching %s failed: %s", number, err)
-                if number in previous:
-                    parcels.append(previous[number])
-                continue
-            if is_delivered(parcel, self.courier):
-                followed.unfollow(entry_id, number)
-                continue
-            parcels.append(parcel)
-        return parcels
 
     def _persist_ups_cookies_if_changed(self):
         """Persist UPS cookies (rotated CSRF etc.) back to the config entry."""
@@ -506,23 +466,7 @@ class ShipmentCoordinator(DataUpdateCoordinator):
         return extra
 
     async def async_track_shipment(self, tracking_number: str) -> bool:
-        """Follow a shipment by number if this account can fetch it (InPost, ORLEN Paczka)."""
-        if self.courier == "orlen":
-            from .api_orlen import OrlenUnknownParcel
-
-            followed = self.hass.data.get(DOMAIN, {}).get(DATA_FOLLOWED)
-            if followed is None:
-                return False
-            try:
-                await self.api.get_parcel(tracking_number)
-            except OrlenUnknownParcel:
-                return False
-            except Exception as err:
-                _LOGGER.debug("ORLEN Paczka: cannot fetch %s: %s", tracking_number, err)
-                return False
-            followed.follow(self.entry.entry_id, tracking_number)
-            await self.async_request_refresh()
-            return True
+        """Follow a shipment by number if this account can fetch it (InPost)."""
         if self.courier != "inpost":
             return False
         followed = self.hass.data.get(DOMAIN, {}).get(DATA_FOLLOWED)
@@ -729,9 +673,6 @@ class ShipmentCoordinator(DataUpdateCoordinator):
 
     async def _fetch_single_parcel(self, tracking_number: str):
         """Fetch a single parcel details for couriers that support it."""
-        if self.courier == "orlen":
-            return await self.api.get_parcel(tracking_number)
-
         if self.courier in {"inpost", "dpd", "dhl", "gls"}:
             if not hasattr(self.api, "get_parcel"):
                 return None

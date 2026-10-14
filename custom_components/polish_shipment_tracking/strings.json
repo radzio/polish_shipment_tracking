@@ -116,11 +116,11 @@
     },
     "track_shipment": {
       "name": "Track shipment by number",
-      "description": "Tracks a shipment by number: an InPost shipment the account's list does not return (for example a redirected one), or an ORLEN Paczka shipment (add the ORLEN Paczka courier first).",
+      "description": "Tracks an InPost shipment that the account's list does not return, for example a courier parcel redirected to another address. The number must belong to one of the configured InPost accounts.",
       "fields": {
         "tracking_number": {
           "name": "Tracking number",
-          "description": "Tracking number of the InPost or ORLEN Paczka shipment."
+          "description": "Tracking number of the InPost shipment."
         }
       }
     }

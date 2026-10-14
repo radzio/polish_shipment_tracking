@@ -4,10 +4,6 @@ Changes in this fork of [stirante/polish_shipment_tracking](https://github.com/s
 
 The same notes are published with each [GitHub release](https://github.com/radzio/polish_shipment_tracking/releases), which is where HACS reads them from.
 
-## 1.10.0 – 2026-10-14
-
-- **New carrier: ORLEN Paczka.** ORLEN Paczka has no account parcel list, so parcels are added by number with `polish_shipment_tracking.track_shipment` after adding the `orlen` courier (no sign-in). A parcel is tracked until it is collected, for up to 30 days. Uses ORLEN's public tracker; endpoint and status codes after [ha-orlen-paczka](https://github.com/ha-parcel-integrations/ha-orlen-paczka) (MIT).
-
 ## 1.9.3 – 2026-10-14
 
 - **InPost: new sign-in.** InPost turned off the SMS-code login and its old token-refresh endpoint, so every InPost account failed with "InPost API Error: 404". InPost accounts now sign in on the InPost website (OAuth): the setup shows a link, you sign in in your browser and paste the address the sign-in ends on. Ported from upstream ([stirante#18](https://github.com/stirante/polish_shipment_tracking/issues/18)).

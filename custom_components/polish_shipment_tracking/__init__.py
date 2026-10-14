@@ -113,10 +113,7 @@ async def async_setup(hass: HomeAssistant, config: dict):
         for coordinator in _coordinators():
             if await coordinator.async_track_shipment(tracking_number):
                 return
-        raise ServiceValidationError(
-            f"Shipment {tracking_number} is not known to InPost or ORLEN Paczka "
-            "(add the ORLEN Paczka courier first to track ORLEN numbers)"
-        )
+        raise ServiceValidationError(f"No InPost account can fetch shipment {tracking_number}")
 
     service_schema = vol.Schema({vol.Required(ATTR_TRACKING_NUMBER): cv.string})
     hass.services.async_register(
