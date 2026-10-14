@@ -19,6 +19,8 @@ def get_parcel_id(data: dict, courier: str) -> str | None:
         return data.get("waybill") or data.get("order_id")
     if courier == "ups":
         return data.get("trackingNumber")
+    if courier == "orlen":
+        return data.get("number")
     return None
 
 def get_parcel_detail_id(data: dict, courier: str) -> str | None:
@@ -89,6 +91,8 @@ def get_raw_status(parcel_data: dict, courier: str) -> str | None:
         return parcel_data.get("status")
     if courier == "ups":
         return parcel_data.get("status")
+    if courier == "orlen":
+        return parcel_data.get("status")
     return None
 
 def _pick_pocztex_status(parcel_data):
@@ -155,6 +159,21 @@ def _pick_gls_status(parcel_data):
     return None
 
 _STATUS_MAP = {
+    "orlen": {
+        # Event codes of the public tracker (see api_orlen.py). 690 is split by
+        # its label in api_orlen: 690_PICKUP = waiting at the point, plain 690 =
+        # handed to a carrier abroad.
+        "200": "created",
+        "210": "created",
+        "100": "in_transport",
+        "240": "in_transport",
+        "300": "in_transport",
+        "653": "in_transport",
+        "690": "in_transport",
+        "680": "handed_out_for_delivery",
+        "690_PICKUP": "waiting_for_pickup",
+        "1000": "delivered",
+    },
     "inpost": {
         "CREATED": "created",
         "CONFIRMED": "created",

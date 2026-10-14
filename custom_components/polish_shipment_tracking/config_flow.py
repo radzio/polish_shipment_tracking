@@ -31,7 +31,7 @@ from .api_helpers import normalize_phone
 
 _LOGGER = logging.getLogger(__name__)
 
-COURIERS = ["inpost", "dpd", "dhl", "pocztex", "gls", "allegro", "ups"]
+COURIERS = ["inpost", "dpd", "dhl", "pocztex", "gls", "allegro", "ups", "orlen"]
 
 class ShipmentTrackingConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     VERSION = 1
@@ -59,6 +59,12 @@ class ShipmentTrackingConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 return await self.async_step_ups_credentials()
             if self.courier == "inpost":
                 return await self.async_step_inpost_login()
+            if self.courier == "orlen":
+                # Public tracker, nothing to sign in to: one entry holds every
+                # number added with the track_shipment action.
+                if any(e.data.get(CONF_COURIER) == "orlen" for e in self._async_current_entries()):
+                    return self.async_abort(reason="already_configured")
+                return self.async_create_entry(title="ORLEN Paczka", data={CONF_COURIER: "orlen"})
             return await self.async_step_phone()
 
         return self.async_show_form(

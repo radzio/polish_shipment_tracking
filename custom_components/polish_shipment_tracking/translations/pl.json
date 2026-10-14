@@ -116,11 +116,11 @@
     },
     "track_shipment": {
       "name": "Śledź przesyłkę po numerze",
-      "description": "Śledzi przesyłkę InPost, której nie ma na liście konta, np. przesyłkę kurierską przekierowaną na inny adres. Numer musi należeć do jednego ze skonfigurowanych kont InPost.",
+      "description": "Śledzi przesyłkę po numerze: przesyłkę InPost, której nie ma na liście konta (np. przekierowaną), albo przesyłkę ORLEN Paczka (najpierw dodaj przewoźnika ORLEN Paczka).",
       "fields": {
         "tracking_number": {
           "name": "Numer przesyłki",
-          "description": "Numer przesyłki InPost."
+          "description": "Numer przesyłki InPost lub ORLEN Paczka."
         }
       }
     }

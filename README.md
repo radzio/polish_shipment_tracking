@@ -33,6 +33,7 @@ Integracja dla Home Assistant do śledzenia przesyłek u popularnych przewoźnik
 | GLS | numer telefonu + hasło do konta myGLS | ✅ | numerze telefonu |
 | Allegro | ciasteczko sesji `QXLSESSID` + kontekst konta (prywatne / firmowe) | ✅ | ciasteczku i kontekście (opcjonalna własna etykieta) |
 | UPS | wklejone „Copy as cURL” żądania `GetIncomingShipments` z pulpitu ups.com | ✅ | wklejonej sesji |
+| ORLEN Paczka | bez logowania – przesyłki dodajesz po numerze akcją `track_shipment` | – | numerze przesyłki |
 
 ### Wiele kont u jednego przewoźnika
 
@@ -105,6 +106,14 @@ Integracja tworzy encję `sensor` dla każdej aktywnej (niedostarczonej) przesy�
 
 
 
+
+## ORLEN Paczka
+
+ORLEN Paczka nie udostępnia listy przesyłek konta, więc przesyłki dodaje się po numerze. Dodaj integrację i wybierz przewoźnika `orlen` (bez logowania), a potem wywołaj akcję `polish_shipment_tracking.track_shipment` z numerem przesyłki. Przesyłka jest śledzona do odbioru, maksymalnie 30 dni.
+
+Przesyłki Allegro dostarczane do automatów ORLEN Paczka mają numer Allegro (`AD0…`), którego tracker ORLEN nie zna – te widać już przez przewoźnika Allegro.
+
+Dane pochodzą z publicznego trackera ORLEN Paczka (bez nadawcy i nazwy punktu); endpoint i kody statusów za [ha-orlen-paczka](https://github.com/ha-parcel-integrations/ha-orlen-paczka) (MIT).
 
 ## InPost: logowanie
 
