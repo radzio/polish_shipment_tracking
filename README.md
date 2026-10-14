@@ -26,7 +26,7 @@ Integracja dla Home Assistant do śledzenia przesyłek u popularnych przewoźnik
 
 | Przewoźnik | Logowanie | Wiele kont | Konto rozróżniane po |
 |---|---|:---:|---|
-| InPost | numer telefonu + kod SMS | ✅ | numerze telefonu |
+| InPost | logowanie na stronie InPost w przeglądarce (wklejasz adres, na którym kończy się logowanie) | ✅ | numerze telefonu |
 | DPD | numer telefonu + kod SMS | ✅ | numerze telefonu |
 | DHL | numer telefonu + kod SMS | ✅ | numerze telefonu |
 | Pocztex (Poczta Polska) | e-mail + hasło | ✅ | adresie e-mail |
@@ -105,6 +105,12 @@ Integracja tworzy encję `sensor` dla każdej aktywnej (niedostarczonej) przesy�
 
 
 
+
+## InPost: logowanie
+
+InPost wyłączył logowanie kodem SMS (październik 2026). Konto InPost loguje się teraz na stronie InPost: integracja pokazuje link, logujesz się w przeglądarce i wklejasz cały adres strony, na której kończy się logowanie (`account.inpost-group.com/callback?code=…`). Rób to na komputerze i wklej adres od razu, bo kod szybko wygasa.
+
+Konta dodane wcześniej kodem SMS trzeba zalogować ponownie jeden raz: Home Assistant pokaże powiadomienie o ponownym uwierzytelnieniu. Przy kilku kontach InPost otwieraj link w oknie prywatnym dla każdego konta, bo strona InPost pamięta zalogowane konto.
 
 ## InPost: przesyłki przekierowane
 

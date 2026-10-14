@@ -26,7 +26,7 @@ Home Assistant integration for tracking shipments from popular carriers in Polan
 
 | Carrier | Login | Multiple accounts | Account identified by |
 |---|---|:---:|---|
-| InPost | phone number + SMS code | ✅ | phone number |
+| InPost | sign-in on the InPost website in your browser (you paste the address the sign-in ends on) | ✅ | phone number |
 | DPD | phone number + SMS code | ✅ | phone number |
 | DHL | phone number + SMS code | ✅ | phone number |
 | Pocztex (Poczta Polska) | e-mail + password | ✅ | e-mail address |
@@ -102,6 +102,12 @@ The integration creates one `sensor` per active (not delivered) shipment.
   - event history
   - event timestamps
   - pickup point details
+
+## InPost: signing in
+
+InPost turned off the SMS-code login (October 2026). An InPost account now signs in on the InPost website: the integration shows a link, you sign in in your browser and paste the whole address of the page the sign-in ends on (`account.inpost-group.com/callback?code=…`). Do it on a computer and paste the address right away, because the code expires quickly.
+
+Accounts added earlier with the SMS code have to sign in again once: Home Assistant shows a re-authentication notification. With several InPost accounts, open the link in a private window for each one, because the InPost page remembers the signed-in account.
 
 ## InPost: redirected parcels
 

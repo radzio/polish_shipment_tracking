@@ -25,6 +25,7 @@ from .const import (
     CONF_ALLEGRO_CONTEXT,
     CONF_ADDRESS_TOKEN,
     CONF_UPS_LOCALE,
+    CONF_CALLBACK_URL,
 )
 from .api_helpers import normalize_phone
 
@@ -41,6 +42,7 @@ class ShipmentTrackingConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self.api_instance = None
         self.temp_data = {}
         self.device_uid = uuid.uuid4().hex
+        self.inpost_login = None
 
     async def async_step_user(self, user_input=None):
         errors = {}
@@ -55,6 +57,8 @@ class ShipmentTrackingConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 return await self.async_step_allegro_credentials()
             if self.courier == "ups":
                 return await self.async_step_ups_credentials()
+            if self.courier == "inpost":
+                return await self.async_step_inpost_login()
             return await self.async_step_phone()
 
         return self.async_show_form(
@@ -75,12 +79,7 @@ class ShipmentTrackingConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             session = async_get_clientsession(self.hass)
 
             try:
-                if self.courier == "inpost":
-                    from .api_inpost import InPostApi
-                    self.api_instance = InPostApi(session, device_uid=self.device_uid)
-                    await self.api_instance.send_sms_code(self.phone)
-
-                elif self.courier == "dpd":
+                if self.courier == "dpd":
                     from .api_dpd import DpdApi
                     self.api_instance = DpdApi(session)
                     await self.api_instance.send_sms_code(self.phone)
@@ -267,6 +266,97 @@ class ShipmentTrackingConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             errors=errors,
         )
 
+    async def async_step_reauth(self, entry_data):
+        """Started by HA when the saved InPost session stops working."""
+        self.courier = entry_data.get(CONF_COURIER)
+        self.phone = entry_data.get(CONF_PHONE)
+        self.device_uid = entry_data.get(CONF_DEVICE_UID) or self.device_uid
+        if self.courier != "inpost":
+            return self.async_abort(reason="reauth_not_supported")
+        return await self.async_step_inpost_reauth()
+
+    async def async_step_inpost_reauth(self, user_input=None):
+        """Tell the user the InPost session expired, then show the sign-in step."""
+        if user_input is not None:
+            return await self.async_step_inpost_login()
+        return self.async_show_form(
+            step_id="inpost_reauth",
+            description_placeholders={"phone": self.phone or ""},
+        )
+
+    async def async_step_inpost_login(self, user_input=None):
+        """Sign in to InPost in the browser and paste the URL it ends on.
+
+        InPost signs in with OAuth2 + PKCE on account.inpost-group.com. The page
+        has a captcha and only accepts InPost's own redirect URI, so the user
+        signs in in their browser and pastes the callback URL.
+        """
+        from .api_inpost import InPostApi, InPostAuthError, InPostLogin, token_phone
+
+        errors = {}
+        if self.inpost_login is None:
+            self.inpost_login = InPostLogin()
+
+        if user_input is not None:
+            try:
+                code = self.inpost_login.extract_code(user_input[CONF_CALLBACK_URL])
+            except ValueError as err:
+                errors["base"] = {
+                    "sms": "inpost_sms_code",
+                    "state": "inpost_wrong_attempt",
+                }.get(str(err), "inpost_no_code")
+            else:
+                api = InPostApi(async_get_clientsession(self.hass), device_uid=self.device_uid)
+                try:
+                    await api.exchange_code(code, self.inpost_login.verifier)
+                except InPostAuthError as err:
+                    _LOGGER.warning("InPost rejected the authorization code: %s", err)
+                    errors["base"] = "inpost_code_expired"
+                except Exception as err:
+                    _LOGGER.exception("InPost sign-in failed: %s", err)
+                    errors["base"] = "auth_error"
+                else:
+                    phone = token_phone(api._token)
+                    if (
+                        self.source == config_entries.SOURCE_REAUTH
+                        and phone
+                        and self.phone
+                        and normalize_phone(self.phone) != phone
+                    ):
+                        # Same guard as for DHL: never let one account's session
+                        # replace another's.
+                        errors["base"] = "inpost_wrong_account"
+                    else:
+                        return self._async_finish_inpost_login(api, phone)
+            if errors.get("base") in ("inpost_code_expired", "inpost_wrong_account"):
+                # The code was used up with this PKCE secret: start over.
+                self.inpost_login = InPostLogin()
+
+        return self.async_show_form(
+            step_id="inpost_login",
+            data_schema=vol.Schema({vol.Required(CONF_CALLBACK_URL): str}),
+            errors=errors,
+            description_placeholders={"login_url": self.inpost_login.url},
+        )
+
+    def _async_finish_inpost_login(self, api, phone):
+        tokens = {
+            CONF_TOKEN: api._token,
+            CONF_REFRESH_TOKEN: api._refresh_token,
+            CONF_TOKEN_EXPIRES_AT: api._expires_at,
+            CONF_DEVICE_UID: self.device_uid,
+        }
+        if self.source == config_entries.SOURCE_REAUTH:
+            entry = self._get_reauth_entry()
+            if phone:
+                tokens[CONF_PHONE] = phone
+            return self.async_update_reload_and_abort(entry, data_updates=tokens)
+
+        return self.async_create_entry(
+            title=f"INPOST ({phone})" if phone else "INPOST",
+            data={CONF_COURIER: self.courier, CONF_PHONE: phone, **tokens},
+        )
+
     async def async_step_sms(self, user_input=None):
         errors = {}
         
@@ -277,16 +367,7 @@ class ShipmentTrackingConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             try:
                 tokens = {}
                 
-                if self.courier == "inpost":
-                    from .api_inpost import InPostApi
-                    api = InPostApi(session, device_uid=self.device_uid)
-                    data = await api.confirm_sms_code(self.phone, code)
-                    tokens = {
-                        CONF_TOKEN: data.get("authToken"),
-                        CONF_REFRESH_TOKEN: data.get("refreshToken")
-                    }
-
-                elif self.courier == "dpd":
+                if self.courier == "dpd":
                     from .api_dpd import DpdApi
                     api = DpdApi(session)
                     data = await api.register_with_code(self.phone, code)

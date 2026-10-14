@@ -45,15 +45,31 @@
         "data": {
           "curl": "Wklejone 'Copy as cURL'"
         }
+      },
+      "inpost_login": {
+        "description": "Konto InPost loguje się na stronie InPostu. Jest tam captcha, więc logujesz się we własnej przeglądarce i podajesz Home Assistantowi adres, na którym kończy się logowanie.\n\n1. [Otwórz stronę logowania InPost]({login_url}) i zaloguj się numerem telefonu albo adresem e-mail.\n2. Po zalogowaniu przeglądarka pokaże stronę InPostu z adresem zaczynającym się od `account.inpost-group.com/callback?code=`. Skopiuj **cały adres z paska adresu**.\n3. Wklej go poniżej od razu: kod w adresie wygasa po kilku minutach.\n\nLogowanie przez e-mail: link z wiadomości otwórz w tej samej przeglądarce. Logowanie skończy się wtedy w karcie, w której je zacząłeś, i stamtąd skopiuj adres.\n\nKilka kont InPost: strona InPostu pamięta zalogowane konto i nie ma prostego wylogowania. Dla każdego konta skopiuj link i otwórz go w oknie prywatnym (incognito).",
+        "data": {
+          "callback_url": "Adres po zalogowaniu"
+        }
+      },
+      "inpost_reauth": {
+        "description": "InPost nie przyjmuje już zapisanej sesji dla numeru {phone}, więc paczki z tego konta nie są aktualizowane. Wybierz **Zatwierdź**, żeby zalogować się ponownie.\n\nInPost zmienił sposób logowania: konta dodane dawnym logowaniem kodem SMS trzeba raz zalogować nową metodą."
       }
     },
     "error": {
       "auth_error": "Błąd uwierzytelniania. Sprawdź swoje dane.",
       "invalid_code": "Nieprawidłowy kod weryfikacyjny.",
-      "unknown": "Wystąpił nieoczekiwany błąd."
+      "unknown": "Wystąpił nieoczekiwany błąd.",
+      "inpost_no_code": "We wklejonym tekście nie ma kodu logowania. Po zalogowaniu wklej cały adres z paska adresu przeglądarki (…/callback?code=…).",
+      "inpost_sms_code": "To wygląda na kod SMS. Wpisz go na stronie InPostu, a potem wklej adres, który przeglądarka pokaże po zalogowaniu.",
+      "inpost_wrong_attempt": "Ten adres pochodzi z wcześniejszej próby logowania. Zaloguj się przez link powyżej i wklej nowy adres.",
+      "inpost_code_expired": "InPost odrzucił kod: wygasł albo został już użyty. Zaloguj się ponownie przez nowy link powyżej i od razu wklej adres.",
+      "inpost_wrong_account": "Zalogowałeś się na inne konto InPost niż to, które odnawiasz. Zaloguj się ponownie przez nowy link powyżej numerem telefonu albo e-mailem tego konta."
     },
     "abort": {
-      "already_configured": "Konto jest już skonfigurowane."
+      "already_configured": "Konto jest już skonfigurowane.",
+      "reauth_successful": "Logowanie do konta zostało odnowione.",
+      "reauth_not_supported": "Ponowne logowanie jest dostępne tylko dla InPost."
     }
   },
   "entity": {

@@ -45,15 +45,31 @@
         "data": {
           "curl": "Pasted 'Copy as cURL'"
         }
+      },
+      "inpost_login": {
+        "description": "InPost accounts are signed in on the InPost website. It has a captcha, so you sign in in your own browser and give Home Assistant the address the sign-in ends on.\n\n1. [Open the InPost sign-in page]({login_url}) and sign in with your phone number or e-mail.\n2. When the sign-in finishes, the browser shows an InPost page whose address starts with `account.inpost-group.com/callback?code=`. Copy the **whole address from the address bar**.\n3. Paste it below right away: the code in it expires after a few minutes.\n\nSigning in with e-mail: open the link from the e-mail in the same browser. The sign-in then finishes in the tab where you started, copy the address from that tab.\n\nMore than one InPost account: the InPost page remembers the signed-in account and has no simple way to sign out. Copy the link and open it in a private (incognito) window for each account.",
+        "data": {
+          "callback_url": "Address after signing in"
+        }
+      },
+      "inpost_reauth": {
+        "description": "InPost no longer accepts the saved session for {phone}, so its parcels are not updated. Select **Submit** to sign in again.\n\nInPost has changed how accounts sign in: accounts added with the earlier SMS-code login have to sign in once with the new method."
       }
     },
     "error": {
       "auth_error": "Authentication failed. Please check your credentials.",
       "invalid_code": "Invalid verification code.",
-      "unknown": "Unexpected error occurred."
+      "unknown": "Unexpected error occurred.",
+      "inpost_no_code": "There is no sign-in code in the pasted text. After signing in, paste the whole address from the browser's address bar (…/callback?code=…).",
+      "inpost_sms_code": "This looks like an SMS code. Enter it on the InPost page, then paste the address the browser shows after signing in.",
+      "inpost_wrong_attempt": "This address comes from an earlier sign-in attempt. Sign in with the link above and paste the new address.",
+      "inpost_code_expired": "InPost rejected the code: it has expired or was already used. Sign in again with the new link above and paste the address right away.",
+      "inpost_wrong_account": "You signed in to a different InPost account than the one being renewed. Sign in again with the new link above, using that account's phone number or e-mail."
     },
     "abort": {
-      "already_configured": "Account is already configured."
+      "already_configured": "Account is already configured.",
+      "reauth_successful": "The account sign-in has been updated.",
+      "reauth_not_supported": "Re-authentication is only available for InPost."
     }
   },
   "entity": {

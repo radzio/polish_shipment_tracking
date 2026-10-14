@@ -4,6 +4,13 @@ Changes in this fork of [stirante/polish_shipment_tracking](https://github.com/s
 
 The same notes are published with each [GitHub release](https://github.com/radzio/polish_shipment_tracking/releases), which is where HACS reads them from.
 
+## 1.9.3 – 2026-10-14
+
+- **InPost: new sign-in.** InPost turned off the SMS-code login and its old token-refresh endpoint, so every InPost account failed with "InPost API Error: 404". InPost accounts now sign in on the InPost website (OAuth): the setup shows a link, you sign in in your browser and paste the address the sign-in ends on. Ported from upstream ([stirante#18](https://github.com/stirante/polish_shipment_tracking/issues/18)).
+- Existing InPost accounts have to sign in again once: Home Assistant asks for it with a re-authentication notification and keeps the existing sensors.
+- Renewed InPost tokens are saved straight away, so a restart does not force another sign-in.
+- Re-authentication refuses a sign-in to a different InPost account than the one being renewed.
+
 ## 1.9.2 – 2026-10-08
 
 - **Allegro Business: pickup code, phone and QR code.** They are now read from version 2 of Allegro's packages feed, which covers business orders too. Previously only private-account orders had them.

@@ -7,6 +7,7 @@ import time
 import aiohttp
 
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
@@ -32,6 +33,7 @@ from .const import (
 from .helpers import get_parcel_detail_id, get_parcel_id
 from .helpers import is_archived, is_delivered
 from .ignored import normalize_tracking_number
+from .api_inpost import InPostAuthError
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -75,6 +77,9 @@ class ShipmentCoordinator(DataUpdateCoordinator):
             api = InPostApi(self.session, device_uid=device_uid)
             api._token = token
             api._refresh_token = refresh_token
+            # Entries from the old SMS login have no expiry: the first request
+            # refreshes, InPost rejects the old token and HA asks to sign in again.
+            api._expires_at = data.get(CONF_TOKEN_EXPIRES_AT, 0) or 0
             return api
             
         elif self.courier == "dpd":
@@ -166,9 +171,14 @@ class ShipmentCoordinator(DataUpdateCoordinator):
         """Fetch data from API."""
         try:
             parcels = await self._fetch_parcels_with_retry()
+            self._persist_inpost_auth_if_changed()
             self._reconcile_ignore_list(parcels)
             filtered = self._filter_active_parcels(parcels)
             return filtered
+        except InPostAuthError as err:
+            # The refresh token was rejected: HA shows a notification and a
+            # re-authentication flow with a new sign-in link.
+            raise ConfigEntryAuthFailed("InPost session expired, sign in again") from err
         except Exception as err:
             _LOGGER.error("Error fetching data for %s: %s", self.courier, err)
             raise UpdateFailed(f"Error communicating with API: {err}")
@@ -177,6 +187,8 @@ class ShipmentCoordinator(DataUpdateCoordinator):
         """Fetch parcels and retry once if unauthorized."""
         try:
             return await self._fetch_parcels()
+        except InPostAuthError:
+            raise
         except Exception as e:
             if "401" in str(e) or "unauthorized" in str(e).lower():
                 _LOGGER.info("%s token expired, refreshing...", self.courier)
@@ -188,6 +200,8 @@ class ShipmentCoordinator(DataUpdateCoordinator):
         """Fetch one parcel and retry once if unauthorized."""
         try:
             return await self._fetch_single_parcel(tracking_number)
+        except InPostAuthError:
+            raise
         except Exception as e:
             if "401" in str(e) or "unauthorized" in str(e).lower():
                 _LOGGER.info("%s token expired while fetching single parcel, refreshing...", self.courier)
@@ -431,6 +445,8 @@ class ShipmentCoordinator(DataUpdateCoordinator):
                 continue
             try:
                 parcel = await self.api.get_parcel(number)
+            except InPostAuthError:
+                raise
             except Exception as err:
                 if "401" in str(err) or "unauthorized" in str(err).lower():
                     raise  # let the caller refresh the token and retry
@@ -763,6 +779,7 @@ class ShipmentCoordinator(DataUpdateCoordinator):
         """
         try:
             parcel = await self._fetch_single_parcel_with_retry(tracking_number)
+            self._persist_inpost_auth_if_changed()
         except Exception as err:
             _LOGGER.debug(
                 "Single parcel refresh failed for %s %s, falling back to full refresh: %s",
@@ -798,6 +815,7 @@ class ShipmentCoordinator(DataUpdateCoordinator):
                 **self.entry.data,
                 CONF_TOKEN: self.api._token,
                 CONF_REFRESH_TOKEN: self.api._refresh_token,
+                CONF_TOKEN_EXPIRES_AT: self.api._expires_at,
             }
         elif self.courier == "dpd":
             await self.api.refresh_access_token()
@@ -839,6 +857,23 @@ class ShipmentCoordinator(DataUpdateCoordinator):
             return
 
         self.hass.config_entries.async_update_entry(self.entry, data=new_data)
+
+    def _persist_inpost_auth_if_changed(self):
+        """Save InPost tokens renewed in-line by the API client.
+
+        The OAuth refresh token is replaced on every refresh, so a renewed
+        token that is not saved would force a new sign-in after a restart.
+        """
+        if self.courier != "inpost":
+            return
+        new_data = {
+            **self.entry.data,
+            CONF_TOKEN: self.api._token,
+            CONF_REFRESH_TOKEN: self.api._refresh_token,
+            CONF_TOKEN_EXPIRES_AT: self.api._expires_at,
+        }
+        if new_data != self.entry.data:
+            self.hass.config_entries.async_update_entry(self.entry, data=new_data)
 
     def _persist_gls_auth_if_changed(self):
         """Persist GLS auth/session changes made during automatic refresh."""
