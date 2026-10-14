@@ -37,6 +37,7 @@ CONF_ADDRESS_TOKEN = "address_token"
 CONF_UPS_LOCALE = "ups_locale"
 # InPost OAuth sign-in: the callback URL the browser lands on after login.
 CONF_CALLBACK_URL = "callback_url"
+# ORLEN Paczka: phone is the customer id; device id activated via SMS.
 
 # --- Frontend registration constants ---
 _MANIFEST_PATH: Final[Path] = Path(__file__).parent / "manifest.json"

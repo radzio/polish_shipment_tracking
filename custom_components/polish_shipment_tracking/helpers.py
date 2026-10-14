@@ -19,6 +19,8 @@ def get_parcel_id(data: dict, courier: str) -> str | None:
         return data.get("waybill") or data.get("order_id")
     if courier == "ups":
         return data.get("trackingNumber")
+    if courier == "orlen":
+        return data.get("barcode")
     return None
 
 def get_parcel_detail_id(data: dict, courier: str) -> str | None:
@@ -89,6 +91,8 @@ def get_raw_status(parcel_data: dict, courier: str) -> str | None:
         return parcel_data.get("status")
     if courier == "ups":
         return parcel_data.get("status")
+    if courier == "orlen":
+        return parcel_data.get("statusid")
     return None
 
 def _pick_pocztex_status(parcel_data):
@@ -155,6 +159,28 @@ def _pick_gls_status(parcel_data):
     return None
 
 _STATUS_MAP = {
+    "orlen": {
+        # statusid values from the ORLEN Paczka account API.
+        "CREATED": "created",
+        "PRESHIPMENT": "created",
+        "WAITING": "created",
+        "SENT": "in_transport",
+        "INTRANSIT": "in_transport",
+        "INBOX": "in_transport",
+        "SORTINGCENTER": "in_transport",
+        "DELIVERYBRANCH": "in_transport",
+        "COURIERCOLLECTED": "in_transport",
+        "COURIERDEPOSIT": "in_transport",
+        "DEPOSITED": "waiting_for_pickup",
+        "CUSTOMERCOLLECTION_PUDO": "delivered",
+        "CUSTOMERREMOTEOPENINGCOLLECTION": "delivered",
+        "COLLECTED": "delivered",
+        "EXPIRED": "returned",
+        "RETURNED": "returned",
+        "CANCELLED": "cancelled",
+        "PROBLEM": "exception",
+        "FAILEDPARCELCOLLECTION": "exception",
+    },
     "inpost": {
         "CREATED": "created",
         "CONFIRMED": "created",
@@ -475,6 +501,8 @@ def is_archived(data: dict, courier: str) -> bool:
         return False
     if courier == "pocztex":
         return data.get("archived") is True
+    if courier == "orlen":
+        return data.get("archived") is True
     return False
 
 
@@ -600,6 +628,13 @@ def get_delivery_type(parcel: dict, courier: str) -> str:
             result = DELIVERY_HOME
         if result is None:
             result = _classify_delivery_text(parcel.get("delivery_subtitle"))
+
+    elif courier == "orlen":
+        point_type = str(parcel.get("pickup_point_type") or "").lower()
+        if point_type in ("machine", "locker"):
+            result = DELIVERY_PARCEL_LOCKER
+        elif point_type:
+            result = DELIVERY_PICKUP_POINT
 
     if result is None:
         raw = parcel.get("_raw_response")

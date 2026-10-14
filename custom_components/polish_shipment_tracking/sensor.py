@@ -261,6 +261,8 @@ class ShipmentSensor(CoordinatorEntity[ShipmentCoordinator], SensorEntity):
             self._add_allegro_attributes(attrs)
         elif self._courier == "ups":
             self._add_ups_attributes(attrs)
+        elif self._courier == "orlen":
+            self._add_orlen_attributes(attrs)
 
         return attrs
 
@@ -436,6 +438,21 @@ class ShipmentSensor(CoordinatorEntity[ShipmentCoordinator], SensorEntity):
             value = data.get(src)
             if value:
                 attrs[dst] = value
+
+    def _add_orlen_attributes(self, attrs: dict) -> None:
+        """Add ORLEN Paczka attributes (pickup point + collection PIN)."""
+        data = self.parcel_data
+        mapping = {
+            "sender": "sender",
+            "pickup_code": "pickup_code",
+            "pickup_point_name": "pickup_point_name",
+            "location": "location",
+            "statusname": "current_step",
+            "proposed_delivery_date": "estimated_delivery",
+        }
+        for src, dst in mapping.items():
+            if data.get(src):
+                attrs[dst] = data[src]
 
     def _add_ups_attributes(self, attrs: dict) -> None:
         """Add UPS specific attributes."""

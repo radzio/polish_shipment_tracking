@@ -4,6 +4,10 @@ Changes in this fork of [stirante/polish_shipment_tracking](https://github.com/s
 
 The same notes are published with each [GitHub release](https://github.com/radzio/polish_shipment_tracking/releases), which is where HACS reads them from.
 
+## 1.10.0 – 2026-10-14
+
+- **New carrier: ORLEN Paczka (account-based).** Signs in with a phone number + SMS code, like InPost/DPD, and lists your incoming ORLEN Paczka parcels with status, pickup point, collection PIN and sender. Only received parcels are shown (ones you send are filtered out). Reverse-engineered from the ORLEN Paczka app's own API.
+
 ## 1.9.3 – 2026-10-14
 
 - **InPost: new sign-in.** InPost turned off the SMS-code login and its old token-refresh endpoint, so every InPost account failed with "InPost API Error: 404". InPost accounts now sign in on the InPost website (OAuth): the setup shows a link, you sign in in your browser and paste the address the sign-in ends on. Ported from upstream ([stirante#18](https://github.com/stirante/polish_shipment_tracking/issues/18)).

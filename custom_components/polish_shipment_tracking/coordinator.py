@@ -22,6 +22,7 @@ from .const import (
     CONF_REFRESH_EXPIRES_AT,
     CONF_COURIER,
     CONF_DEVICE_UID,
+    CONF_PHONE,
     CONF_ID_TOKEN,
     CONF_SESSION_ID,
     CONF_SESSION_REGISTERED,
@@ -145,6 +146,10 @@ class ShipmentCoordinator(DataUpdateCoordinator):
                 host=data.get(CONF_ALLEGRO_HOST, "allegro.pl"),
             )
             return api
+
+        elif self.courier == "orlen":
+            from .api_orlen import OrlenApi
+            return OrlenApi(self.session, phone=data.get(CONF_PHONE), device_id=device_uid)
 
         elif self.courier == "ups":
             from .api_ups import UpsApi
@@ -387,6 +392,9 @@ class ShipmentCoordinator(DataUpdateCoordinator):
             # Cookies rotate every call (CSRF) — persist so they survive restart.
             self._persist_ups_cookies_if_changed()
             return data.get("shipments", []) if isinstance(data, dict) else []
+
+        elif self.courier == "orlen":
+            return await self.api.get_parcels()
 
         return []
 
@@ -673,6 +681,9 @@ class ShipmentCoordinator(DataUpdateCoordinator):
 
     async def _fetch_single_parcel(self, tracking_number: str):
         """Fetch a single parcel details for couriers that support it."""
+        if self.courier == "orlen":
+            return await self.api.get_parcel(tracking_number)
+
         if self.courier in {"inpost", "dpd", "dhl", "gls"}:
             if not hasattr(self.api, "get_parcel"):
                 return None

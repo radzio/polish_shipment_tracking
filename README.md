@@ -33,6 +33,7 @@ Integracja dla Home Assistant do śledzenia przesyłek u popularnych przewoźnik
 | GLS | numer telefonu + hasło do konta myGLS | ✅ | numerze telefonu |
 | Allegro | ciasteczko sesji `QXLSESSID` + kontekst konta (prywatne / firmowe) | ✅ | ciasteczku i kontekście (opcjonalna własna etykieta) |
 | UPS | wklejone „Copy as cURL” żądania `GetIncomingShipments` z pulpitu ups.com | ✅ | wklejonej sesji |
+| ORLEN Paczka | numer telefonu + kod SMS | ✅ | numerze telefonu |
 
 ### Wiele kont u jednego przewoźnika
 
@@ -105,6 +106,14 @@ Integracja tworzy encję `sensor` dla każdej aktywnej (niedostarczonej) przesy�
 
 
 
+
+## ORLEN Paczka
+
+Logowanie jak w aplikacji ORLEN Paczka: podajesz numer telefonu, dostajesz kod SMS i go wpisujesz (tak samo jak InPost/DPD). Numer telefonu jest identyfikatorem konta.
+
+Pokazywane są tylko przesyłki **przychodzące** (odbierane), a nie nadawane przez Ciebie. Dla każdej przesyłki widać status, punkt odbioru (automat/punkt), kod odbioru (PIN) oraz nadawcę.
+
+Dodanie konta rejestruje Home Assistant jako kolejne urządzenie – aplikacja na telefonie działa dalej (ORLEN pozwala na wiele urządzeń).
 
 ## InPost: logowanie
 

@@ -33,6 +33,7 @@ Home Assistant integration for tracking shipments from popular carriers in Polan
 | GLS | phone number + myGLS account password | ✅ | phone number |
 | Allegro | `QXLSESSID` session cookie + account context (private / business) | ✅ | cookie and context (optional custom label) |
 | UPS | pasted "Copy as cURL" of the `GetIncomingShipments` request from the ups.com dashboard | ✅ | pasted session |
+| ORLEN Paczka | phone number + SMS code | ✅ | phone number |
 
 ### Multiple accounts per carrier
 
@@ -102,6 +103,14 @@ The integration creates one `sensor` per active (not delivered) shipment.
   - event history
   - event timestamps
   - pickup point details
+
+## ORLEN Paczka
+
+Signs in like the ORLEN Paczka app: enter your phone number, get an SMS code and type it in (the same as InPost/DPD). The phone number is the account id.
+
+Only **incoming** (received) parcels are shown, not ones you send. Each parcel has its status, pickup point (locker/point), collection code (PIN) and sender.
+
+Adding an account registers Home Assistant as another device – the phone app keeps working (ORLEN allows several devices).
 
 ## InPost: signing in
 
