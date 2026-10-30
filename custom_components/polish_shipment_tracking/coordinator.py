@@ -35,6 +35,7 @@ from .helpers import get_parcel_detail_id, get_parcel_id
 from .helpers import is_archived, is_delivered
 from .ignored import normalize_tracking_number
 from .api_inpost import InPostAuthError
+from .api_helpers import normalize_phone
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -268,7 +269,8 @@ class ShipmentCoordinator(DataUpdateCoordinator):
             parcels = data.get("shipments", [])
             if not parcels:
                 return []
-            return await self._enrich_dhl_parcels(parcels)
+            enriched = await self._enrich_dhl_parcels(parcels)
+            return self._dedup_dhl_against_accounts(enriched)
 
         elif self.courier == "pocztex":
             data = await self.api.get_parcels()
@@ -529,6 +531,47 @@ class ShipmentCoordinator(DataUpdateCoordinator):
                 package["pickup_phone"] = info["phone"]
             if info.get("qr"):
                 package["pickup_qr"] = info["qr"]
+
+    def _dedup_dhl_against_accounts(self, parcels):
+        """Drop a DHL parcel shown to more than one household DHL account.
+
+        DHL surfaces the same shipment in several accounts' incoming lists (the
+        list payload has no owner flag and receiver=None). The per-shipment
+        detail carries ``relatedPhoneNumber`` = the true recipient. If that
+        recipient is a DIFFERENT DHL account tracked in this HA AND that owner's
+        coordinator currently lists the parcel too, hide it here so it shows once
+        (on the owner). The "owner currently lists it" guard is essential: DHL's
+        list is eventually-consistent, so dropping purely on relatedPhoneNumber
+        would make the parcel vanish on any poll where the owner's list hasn't
+        caught up. Parcels we own, or whose recipient isn't tracked here / is
+        unknown, are always kept.
+        """
+        my_phone = normalize_phone(self.entry.data.get("phone") or "")
+
+        # Map each tracked DHL account's phone -> its coordinator.
+        dhl_coords = {}
+        for coord in self.hass.data.get(DOMAIN, {}).values():
+            if not isinstance(coord, ShipmentCoordinator) or coord.courier != "dhl":
+                continue
+            phone = normalize_phone(coord.entry.data.get("phone") or "")
+            if phone:
+                dhl_coords[phone] = coord
+
+        def _owner_shows_it(parcel):
+            if not isinstance(parcel, dict):
+                return False
+            owner = normalize_phone(parcel.get("relatedPhoneNumber") or "")
+            if not owner or owner == my_phone or owner not in dhl_coords:
+                return False
+            number = str(get_parcel_id(parcel, "dhl") or "")
+            if not number:
+                return False
+            for other in (dhl_coords[owner].data or []):
+                if isinstance(other, dict) and str(get_parcel_id(other, "dhl") or "") == number:
+                    return True
+            return False
+
+        return [p for p in parcels if not _owner_shows_it(p)]
 
     def _dedup_allegro_against_couriers(self, packages):
         """Hide Allegro packages already tracked under their real courier."""

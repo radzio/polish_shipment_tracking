@@ -4,6 +4,10 @@ Changes in this fork of [stirante/polish_shipment_tracking](https://github.com/s
 
 The same notes are published with each [GitHub release](https://github.com/radzio/polish_shipment_tracking/releases), which is where HACS reads them from.
 
+## 1.10.1 – 2026-10-30
+
+- **DHL: no more duplicated parcels across household accounts.** When the same DHL parcel appeared in more than one of your DHL accounts (e.g. a household where DHL shows one person's parcel to both), it created a sensor under each account. It now shows once, under the actual recipient (taken from the parcel's recipient phone in the DHL details). A parcel is only hidden from the other account while that recipient account is also currently showing it, so it can never disappear from both.
+
 ## 1.10.0 – 2026-10-14
 
 - **New carrier: ORLEN Paczka (account-based).** Signs in with a phone number + SMS code, like InPost/DPD, and lists your incoming ORLEN Paczka parcels with status, pickup point, collection PIN and sender. Only received parcels are shown (ones you send are filtered out). Reverse-engineered from the ORLEN Paczka app's own API.
