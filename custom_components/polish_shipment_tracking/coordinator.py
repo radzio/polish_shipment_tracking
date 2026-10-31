@@ -39,6 +39,48 @@ from .api_helpers import normalize_phone
 
 _LOGGER = logging.getLogger(__name__)
 
+
+# --- Auth-failure classification -------------------------------------------
+# Home Assistant only shows the "Reauthenticate" notification + button when the
+# coordinator raises ConfigEntryAuthFailed. Everything else is a quiet
+# UpdateFailed. These two helpers decide, from the error raised while fetching,
+# whether we are looking at a real auth failure (-> reauth) or something
+# transient (-> refresh/retry, then UpdateFailed). Tune the marker lists to make
+# reauth more or less eager: too eager nags on blips, too shy fails silently.
+
+# Definitive: the auth server explicitly rejected the saved credentials/token.
+# No point retrying — go straight to reauth.
+_AUTH_REJECTION_MARKERS = (
+    "invalid_grant",
+    "invalid_token",
+    "unauthorized_client",
+    "invalid refresh token",
+    "user disabled",
+    "account disabled",
+)
+
+# Possibly recoverable by a token refresh: try the refresh+retry path first, and
+# only escalate to reauth if the refresh itself is rejected or it still fails.
+_UNAUTHORIZED_MARKERS = (
+    "401",
+    "403",
+    "unauthorized",
+    "forbidden",
+)
+
+
+def _is_auth_rejection(err) -> bool:
+    """True when the error means the saved credentials are no longer valid."""
+    text = str(err).lower()
+    return any(marker in text for marker in _AUTH_REJECTION_MARKERS)
+
+
+def _looks_unauthorized(err) -> bool:
+    """True for a plain 401/403 that a token refresh might still fix."""
+    text = str(err).lower()
+    return any(marker in text for marker in _UNAUTHORIZED_MARKERS)
+
+
 class ShipmentCoordinator(DataUpdateCoordinator):
     """Class to manage fetching shipment data."""
 
@@ -181,11 +223,26 @@ class ShipmentCoordinator(DataUpdateCoordinator):
             self._reconcile_ignore_list(parcels)
             filtered = self._filter_active_parcels(parcels)
             return filtered
+        except ConfigEntryAuthFailed:
+            # Already classified as an auth failure (e.g. by the retry helper):
+            # let it through so HA opens the reauth flow.
+            raise
         except InPostAuthError as err:
             # The refresh token was rejected: HA shows a notification and a
             # re-authentication flow with a new sign-in link.
             raise ConfigEntryAuthFailed("InPost session expired, sign in again") from err
         except Exception as err:
+            if _is_auth_rejection(err):
+                # Any courier: the saved login was rejected outright (expired or
+                # revoked refresh token, disabled account, …). Surface HA's
+                # reauth notification + button instead of failing silently.
+                _LOGGER.warning(
+                    "%s authentication failed, re-authentication required: %s",
+                    self.courier, err,
+                )
+                raise ConfigEntryAuthFailed(
+                    f"{self.courier.upper()} login no longer valid, sign in again"
+                ) from err
             _LOGGER.error("Error fetching data for %s: %s", self.courier, err)
             raise UpdateFailed(f"Error communicating with API: {err}")
 
@@ -196,10 +253,28 @@ class ShipmentCoordinator(DataUpdateCoordinator):
         except InPostAuthError:
             raise
         except Exception as e:
-            if "401" in str(e) or "unauthorized" in str(e).lower():
+            if _is_auth_rejection(e):
+                raise ConfigEntryAuthFailed(
+                    f"{self.courier.upper()} login no longer valid, sign in again"
+                ) from e
+            if _looks_unauthorized(e):
                 _LOGGER.info("%s token expired, refreshing...", self.courier)
-                await self._refresh_token()
-                return await self._fetch_parcels()
+                try:
+                    await self._refresh_token()
+                except Exception as refresh_err:
+                    # The refresh was rejected (or impossible for a cookie-only
+                    # courier): the saved login is dead -> reauth.
+                    raise ConfigEntryAuthFailed(
+                        f"{self.courier.upper()} login no longer valid, sign in again"
+                    ) from refresh_err
+                try:
+                    return await self._fetch_parcels()
+                except Exception as retry_err:
+                    if _looks_unauthorized(retry_err) or _is_auth_rejection(retry_err):
+                        raise ConfigEntryAuthFailed(
+                            f"{self.courier.upper()} login no longer valid, sign in again"
+                        ) from retry_err
+                    raise
             raise e
 
     async def _fetch_single_parcel_with_retry(self, tracking_number: str):
@@ -209,9 +284,18 @@ class ShipmentCoordinator(DataUpdateCoordinator):
         except InPostAuthError:
             raise
         except Exception as e:
-            if "401" in str(e) or "unauthorized" in str(e).lower():
+            if _is_auth_rejection(e):
+                raise ConfigEntryAuthFailed(
+                    f"{self.courier.upper()} login no longer valid, sign in again"
+                ) from e
+            if _looks_unauthorized(e):
                 _LOGGER.info("%s token expired while fetching single parcel, refreshing...", self.courier)
-                await self._refresh_token()
+                try:
+                    await self._refresh_token()
+                except Exception as refresh_err:
+                    raise ConfigEntryAuthFailed(
+                        f"{self.courier.upper()} login no longer valid, sign in again"
+                    ) from refresh_err
                 return await self._fetch_single_parcel(tracking_number)
             raise e
 

@@ -54,6 +54,9 @@
       },
       "inpost_reauth": {
         "description": "InPost no longer accepts the saved session for {phone}, so its parcels are not updated. Select **Submit** to sign in again.\n\nInPost has changed how accounts sign in: accounts added with the earlier SMS-code login have to sign in once with the new method."
+      },
+      "reauth_confirm": {
+        "description": "Your {courier} sign-in for {account} stopped working, so its parcels are not being updated. Select **Submit** to reconnect this account.\n\nFor SMS-based couriers (DPD, DHL, ORLEN) a new code will be sent to that phone number. For the others you will be asked for the password, cookie or cURL again."
       }
     },
     "error": {
@@ -64,12 +67,13 @@
       "inpost_sms_code": "This looks like an SMS code. Enter it on the InPost page, then paste the address the browser shows after signing in.",
       "inpost_wrong_attempt": "This address comes from an earlier sign-in attempt. Sign in with the link above and paste the new address.",
       "inpost_code_expired": "InPost rejected the code: it has expired or was already used. Sign in again with the new link above and paste the address right away.",
-      "inpost_wrong_account": "You signed in to a different InPost account than the one being renewed. Sign in again with the new link above, using that account's phone number or e-mail."
+      "inpost_wrong_account": "You signed in to a different InPost account than the one being renewed. Sign in again with the new link above, using that account's phone number or e-mail.",
+      "reauth_wrong_account": "This is a different account than the one being renewed. Re-authenticate using the same account that this entry was set up with."
     },
     "abort": {
       "already_configured": "Account is already configured.",
       "reauth_successful": "The account sign-in has been updated.",
-      "reauth_not_supported": "Re-authentication is only available for InPost."
+      "reauth_not_supported": "Re-authentication is not available for this courier."
     }
   },
   "entity": {

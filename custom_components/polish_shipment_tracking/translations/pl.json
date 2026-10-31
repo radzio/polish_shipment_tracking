@@ -54,6 +54,9 @@
       },
       "inpost_reauth": {
         "description": "InPost nie przyjmuje już zapisanej sesji dla numeru {phone}, więc paczki z tego konta nie są aktualizowane. Wybierz **Zatwierdź**, żeby zalogować się ponownie.\n\nInPost zmienił sposób logowania: konta dodane dawnym logowaniem kodem SMS trzeba raz zalogować nową metodą."
+      },
+      "reauth_confirm": {
+        "description": "Logowanie {courier} dla konta {account} przestało działać, więc paczki z tego konta nie są aktualizowane. Wybierz **Zatwierdź**, żeby połączyć to konto ponownie.\n\nDla kurierów logujących się SMS-em (DPD, DHL, ORLEN) na ten numer zostanie wysłany nowy kod. Dla pozostałych trzeba będzie ponownie podać hasło, ciasteczko lub cURL."
       }
     },
     "error": {
@@ -64,12 +67,13 @@
       "inpost_sms_code": "To wygląda na kod SMS. Wpisz go na stronie InPostu, a potem wklej adres, który przeglądarka pokaże po zalogowaniu.",
       "inpost_wrong_attempt": "Ten adres pochodzi z wcześniejszej próby logowania. Zaloguj się przez link powyżej i wklej nowy adres.",
       "inpost_code_expired": "InPost odrzucił kod: wygasł albo został już użyty. Zaloguj się ponownie przez nowy link powyżej i od razu wklej adres.",
-      "inpost_wrong_account": "Zalogowałeś się na inne konto InPost niż to, które odnawiasz. Zaloguj się ponownie przez nowy link powyżej numerem telefonu albo e-mailem tego konta."
+      "inpost_wrong_account": "Zalogowałeś się na inne konto InPost niż to, które odnawiasz. Zaloguj się ponownie przez nowy link powyżej numerem telefonu albo e-mailem tego konta.",
+      "reauth_wrong_account": "To inne konto niż to, które odnawiasz. Zaloguj się ponownie tym samym kontem, dla którego ten wpis został skonfigurowany."
     },
     "abort": {
       "already_configured": "Konto jest już skonfigurowane.",
       "reauth_successful": "Logowanie do konta zostało odnowione.",
-      "reauth_not_supported": "Ponowne logowanie jest dostępne tylko dla InPost."
+      "reauth_not_supported": "Ponowne logowanie nie jest dostępne dla tego kuriera."
     }
   },
   "entity": {

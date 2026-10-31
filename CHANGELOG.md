@@ -4,6 +4,17 @@ Changes in this fork of [stirante/polish_shipment_tracking](https://github.com/s
 
 The same notes are published with each [GitHub release](https://github.com/radzio/polish_shipment_tracking/releases), which is where HACS reads them from.
 
+## 1.11.0 – 2026-10-31
+
+- **Expired logins now tell you.** When a courier's saved sign-in stops working (an expired or revoked token, a disabled account, an expired cookie), the account used to just go quiet — its parcels stopped updating with no warning. Home Assistant now shows a **"Reconfigure / Reauthenticate" notification and button** for the affected account, like it already did for InPost. Previously only InPost did this; every other courier failed silently.
+- **Reconnect in place — no more delete and re-add.** The Reauthenticate button re-runs that courier's own sign-in and updates the existing account, keeping its history and sensors:
+  - **DPD, DHL, ORLEN** – a new code is sent to the account's phone; you just enter it.
+  - **Pocztex, GLS** – re-enter the password.
+  - **Allegro, UPS** – paste a fresh cookie / "Copy as cURL".
+  - **InPost** – unchanged (browser sign-in).
+- Re-authentication refuses a different account than the one being renewed, where the account identity is known (phone / e-mail), so one account can't overwrite another.
+- Note: for the cookie-based couriers (DHL cookie logins, GLS, Allegro, UPS) an expired cookie does not always report a clean error, so the notification can occasionally lag; the token-based couriers (DPD, ORLEN, Pocztex, InPost, DHL SMS) are detected reliably.
+
 ## 1.10.1 – 2026-10-30
 
 - **DHL: no more duplicated parcels across household accounts.** When the same DHL parcel appeared in more than one of your DHL accounts (e.g. a household where DHL shows one person's parcel to both), it created a sensor under each account. It now shows once, under the actual recipient (taken from the parcel's recipient phone in the DHL details). A parcel is only hidden from the other account while that recipient account is also currently showing it, so it can never disappear from both.

@@ -39,6 +39,9 @@ class ShipmentTrackingConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     def __init__(self):
         self.courier = None
         self.phone = None
+        self.email = None
+        self.allegro_context = None
+        self.allegro_host = None
         self.api_instance = None
         self.temp_data = {}
         self.device_uid = uuid.uuid4().hex
@@ -116,26 +119,38 @@ class ShipmentTrackingConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             email = str(user_input[CONF_EMAIL]).strip()
             password = str(user_input[CONF_PASSWORD])
 
-            session = async_get_clientsession(self.hass)
-            try:
-                from .api_pocztex import PocztexApi
-                api = PocztexApi(session)
-                data = await api.login(email, password)
+            if (
+                self.source == config_entries.SOURCE_REAUTH
+                and self.email
+                and email.lower() != str(self.email).lower()
+            ):
+                errors["base"] = "reauth_wrong_account"
+            else:
+                session = async_get_clientsession(self.hass)
+                try:
+                    from .api_pocztex import PocztexApi
+                    api = PocztexApi(session)
+                    data = await api.login(email, password)
 
-                return self.async_create_entry(
-                    title=f"{self.courier.upper()} ({email})",
-                    data={
-                        CONF_COURIER: self.courier,
-                        CONF_EMAIL: email,
+                    entry_tokens = {
                         CONF_TOKEN: data.get("access_token"),
                         CONF_REFRESH_TOKEN: data.get("refresh_token"),
                         CONF_TOKEN_EXPIRES_AT: api._expires_at,
                         CONF_REFRESH_EXPIRES_AT: api._refresh_expires_at,
                     }
-                )
-            except Exception as e:
-                _LOGGER.exception("Pocztex login failed: %s", e)
-                errors["base"] = "auth_error"
+                    if self.source == config_entries.SOURCE_REAUTH:
+                        return self._async_finish_reauth(entry_tokens)
+                    return self.async_create_entry(
+                        title=f"{self.courier.upper()} ({email})",
+                        data={
+                            CONF_COURIER: self.courier,
+                            CONF_EMAIL: email,
+                            **entry_tokens,
+                        }
+                    )
+                except Exception as e:
+                    _LOGGER.exception("Pocztex login failed: %s", e)
+                    errors["base"] = "auth_error"
 
         return self.async_show_form(
             step_id="pocztex_credentials",
@@ -154,17 +169,20 @@ class ShipmentTrackingConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             phone = normalize_phone(raw_phone)
             password = str(user_input[CONF_PASSWORD])
 
-            try:
-                from .api_gls import GlsApi
-                async with aiohttp.ClientSession(cookie_jar=aiohttp.DummyCookieJar()) as gls_session:
-                    api = GlsApi(gls_session, session_id=str(uuid.uuid4()))
-                    data = await api.login(phone, password)
+            if (
+                self.source == config_entries.SOURCE_REAUTH
+                and self.phone
+                and normalize_phone(self.phone) != phone
+            ):
+                errors["base"] = "reauth_wrong_account"
+            else:
+                try:
+                    from .api_gls import GlsApi
+                    async with aiohttp.ClientSession(cookie_jar=aiohttp.DummyCookieJar()) as gls_session:
+                        api = GlsApi(gls_session, session_id=str(uuid.uuid4()))
+                        data = await api.login(phone, password)
 
-                return self.async_create_entry(
-                    title=f"{self.courier.upper()} ({phone})",
-                    data={
-                        CONF_COURIER: self.courier,
-                        CONF_PHONE: phone,
+                    entry_tokens = {
                         CONF_TOKEN: data.get("access_token"),
                         CONF_REFRESH_TOKEN: data.get("refresh_token"),
                         CONF_ID_TOKEN: data.get("id_token"),
@@ -172,10 +190,19 @@ class ShipmentTrackingConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         CONF_SESSION_ID: data.get("session_id"),
                         CONF_SESSION_REGISTERED: data.get("session_registered"),
                     }
-                )
-            except Exception as e:
-                _LOGGER.exception("GLS login failed: %s", e)
-                errors["base"] = "auth_error"
+                    if self.source == config_entries.SOURCE_REAUTH:
+                        return self._async_finish_reauth(entry_tokens)
+                    return self.async_create_entry(
+                        title=f"{self.courier.upper()} ({phone})",
+                        data={
+                            CONF_COURIER: self.courier,
+                            CONF_PHONE: phone,
+                            **entry_tokens,
+                        }
+                    )
+                except Exception as e:
+                    _LOGGER.exception("GLS login failed: %s", e)
+                    errors["base"] = "auth_error"
 
         return self.async_show_form(
             step_id="gls_credentials",
@@ -196,12 +223,24 @@ class ShipmentTrackingConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
             try:
                 from .api_allegro import AllegroApi, ALLEGRO_HOSTS
-                host = ALLEGRO_HOSTS.get(context, "allegro.pl")
+                if self.source == config_entries.SOURCE_REAUTH:
+                    # Keep the account's own context/host; only the cookie is renewed.
+                    context = self.allegro_context or context
+                    host = self.allegro_host or ALLEGRO_HOSTS.get(context, "allegro.pl")
+                else:
+                    host = ALLEGRO_HOSTS.get(context, "allegro.pl")
                 # Validate the cookie on an isolated session so the check never
                 # touches HA's shared cookie jar.
                 async with aiohttp.ClientSession(cookie_jar=aiohttp.DummyCookieJar()) as allegro_session:
                     api = AllegroApi(allegro_session, cookie=cookie, host=host)
                     await api.validate()
+
+                if self.source == config_entries.SOURCE_REAUTH:
+                    return self._async_finish_reauth({
+                        CONF_COOKIE: cookie,
+                        CONF_ALLEGRO_HOST: host,
+                        CONF_ALLEGRO_CONTEXT: context,
+                    })
 
                 title_suffix = label or context.capitalize()
                 return self.async_create_entry(
@@ -248,6 +287,13 @@ class ShipmentTrackingConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     await api.validate()
                     cookies = api._cookies
 
+                if self.source == config_entries.SOURCE_REAUTH:
+                    return self._async_finish_reauth({
+                        "cookies": json.dumps(cookies),
+                        CONF_ADDRESS_TOKEN: address_token,
+                        CONF_UPS_LOCALE: locale,
+                    })
+
                 return self.async_create_entry(
                     title=f"UPS ({address_token[:8]}…)",
                     data={
@@ -272,13 +318,86 @@ class ShipmentTrackingConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         )
 
     async def async_step_reauth(self, entry_data):
-        """Started by HA when the saved InPost session stops working."""
+        """Started by HA when a saved courier session stops working.
+
+        Raised from the coordinator as ConfigEntryAuthFailed. We re-run the
+        courier's own sign-in and update the EXISTING entry in place (keeping
+        its entry_id, sensors and history) instead of making the user delete
+        and re-add it.
+        """
         self.courier = entry_data.get(CONF_COURIER)
         self.phone = entry_data.get(CONF_PHONE)
+        self.email = entry_data.get(CONF_EMAIL)
         self.device_uid = entry_data.get(CONF_DEVICE_UID) or self.device_uid
-        if self.courier != "inpost":
-            return self.async_abort(reason="reauth_not_supported")
-        return await self.async_step_inpost_reauth()
+        self.allegro_context = entry_data.get(CONF_ALLEGRO_CONTEXT)
+        self.allegro_host = entry_data.get(CONF_ALLEGRO_HOST)
+        return await self.async_step_reauth_confirm()
+
+    async def async_step_reauth_confirm(self, user_input=None):
+        """Confirm, then hand off to the courier's sign-in step.
+
+        InPost has its own confirm screen (browser sign-in). Every other courier
+        shows one short "your <COURIER> login expired — reconnect" screen so the
+        user knows what is about to happen (an SMS, or a cookie paste) before it
+        does.
+        """
+        if self.courier == "inpost":
+            return await self.async_step_inpost_reauth(user_input)
+
+        if user_input is None:
+            return self.async_show_form(
+                step_id="reauth_confirm",
+                description_placeholders={
+                    "courier": (self.courier or "").upper(),
+                    "account": self.phone or self.email or "",
+                },
+            )
+
+        if self.courier in ("dpd", "dhl", "orlen"):
+            # Phone is known from the entry: resend the code and ask for it.
+            return await self._async_reauth_send_sms()
+        if self.courier == "pocztex":
+            return await self.async_step_pocztex_credentials()
+        if self.courier == "gls":
+            return await self.async_step_gls_credentials()
+        if self.courier == "allegro":
+            return await self.async_step_allegro_credentials()
+        if self.courier == "ups":
+            return await self.async_step_ups_credentials()
+        return self.async_abort(reason="reauth_not_supported")
+
+    async def _async_reauth_send_sms(self):
+        """Re-send the SMS code to the entry's known phone, then ask for it."""
+        session = async_get_clientsession(self.hass)
+        try:
+            if self.courier == "dpd":
+                from .api_dpd import DpdApi
+                self.api_instance = DpdApi(session)
+                await self.api_instance.send_sms_code(self.phone)
+            elif self.courier == "orlen":
+                from .api_orlen import OrlenApi
+                self.api_instance = OrlenApi(session)
+                await self.api_instance.send_code(self.phone, self.device_uid)
+            elif self.courier == "dhl":
+                from .api_dhl import DhlApi
+                self.api_instance = DhlApi(session)
+                await self.api_instance.generate_code(self.phone)
+        except Exception as e:
+            _LOGGER.exception("Reauth SMS send failed for %s: %s", self.courier, e)
+            return self.async_show_form(
+                step_id="reauth_confirm",
+                errors={"base": "auth_error"},
+                description_placeholders={
+                    "courier": (self.courier or "").upper(),
+                    "account": self.phone or "",
+                },
+            )
+        return await self.async_step_sms()
+
+    def _async_finish_reauth(self, data_updates):
+        """Update the existing entry's credentials and reload it."""
+        entry = self._get_reauth_entry()
+        return self.async_update_reload_and_abort(entry, data_updates=data_updates)
 
     async def async_step_inpost_reauth(self, user_input=None):
         """Tell the user the InPost session expired, then show the sign-in step."""
@@ -400,6 +519,14 @@ class ShipmentTrackingConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         CONF_TOKEN: token,
                         "cookies": cookies_json
                     }
+
+                if self.source == config_entries.SOURCE_REAUTH:
+                    # Same account (phone is the entry's own), just refresh its
+                    # credentials in place.
+                    return self._async_finish_reauth({
+                        CONF_DEVICE_UID: self.device_uid,
+                        **tokens,
+                    })
 
                 return self.async_create_entry(
                     title=f"{self.courier.upper()} ({self.phone})",
