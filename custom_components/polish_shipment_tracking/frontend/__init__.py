@@ -13,7 +13,11 @@ import logging
 from pathlib import Path
 from typing import Any
 
-from homeassistant.components.http import StaticPathConfig
+#from homeassistant.components.http import StaticPathConfig
+try:
+    from homeassistant.components.http import StaticPathConfig
+except ImportError:  # HA < 2024.6
+    StaticPathConfig = None
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.event import async_call_later
 
@@ -57,9 +61,11 @@ class JSModuleRegistration:
     async def _async_register_path(self) -> None:
         """Register the static HTTP path for serving frontend files."""
         try:
-            await self.hass.http.async_register_static_paths(
-                [StaticPathConfig(URL_BASE, Path(__file__).parent, False)]
-            )
+            self.hass.http.register_static_path(URL_BASE, str(Path(__file__).parent), False)
+            #self.hass.http.register_static_path(url, path, False)
+            #await self.hass.http.async_register_static_paths(
+            #    [StaticPathConfig(URL_BASE, Path(__file__).parent, False)]
+            #)
             _LOGGER.debug("Path registered: %s -> %s", URL_BASE, Path(__file__).parent)
         except RuntimeError:
             # Path is already registered, which can happen on reload.

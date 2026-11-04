@@ -4,7 +4,11 @@ import logging
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, CoreState, EVENT_HOMEASSISTANT_STARTED, ServiceCall, callback
-from homeassistant.exceptions import ServiceValidationError
+#from homeassistant.exceptions import ServiceValidationError
+try:
+    from homeassistant.exceptions import ServiceValidationError
+except ImportError:  # HA < 2023.12
+    from homeassistant.exceptions import HomeAssistantError as ServiceValidationError
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import entity_registry as er
 from homeassistant.components import websocket_api
@@ -55,7 +59,11 @@ async def _async_migrate_unique_ids(hass: HomeAssistant, entry: ConfigEntry) -> 
 
     await er.async_migrate_entries(hass, entry.entry_id, _migrator)
 
-CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
+#CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
+if hasattr(cv, "config_entry_only_config_schema"):
+    CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
+else:  # HA < 2024.x
+    CONFIG_SCHEMA = cv.empty_config_schema(DOMAIN)
 
 async def async_setup(hass: HomeAssistant, config: dict):
     """Set up the Shipment Tracking integration."""
