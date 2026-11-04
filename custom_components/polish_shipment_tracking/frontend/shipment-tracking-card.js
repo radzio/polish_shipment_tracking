@@ -8,6 +8,11 @@ const CARD_TRANSLATIONS = {
     "meta.name": "Shipment Tracking Card",
     "meta.description": "Displays shipment tracking sensors with status badges.",
     "editor.title": "Title",
+    "editor.group_by": "Group shipments into columns",
+    "editor.group_by.none": "No grouping",
+    "editor.group_by.recipient": "By recipient (phone / account)",
+    "editor.recipient_names": "Column names for recipients (phone or e-mail: name)",
+    "labels.unknown_recipient": "Unknown recipient",
     "editor.show_list_pickup_code": "Show pickup code in list",
     "editor.show_list_location": "Show pickup point in list",
     "editor.show_list_delivery_type": "Show delivery type in list",
@@ -76,6 +81,11 @@ const CARD_TRANSLATIONS = {
     "meta.name": "Karta śledzenia przesyłek",
     "meta.description": "Wyświetla sensory śledzenia przesyłek z etykietami statusu.",
     "editor.title": "Tytuł",
+    "editor.group_by": "Grupuj przesyłki w kolumny",
+    "editor.group_by.none": "Bez grupowania",
+    "editor.group_by.recipient": "Wg odbiorcy (telefon / konto)",
+    "editor.recipient_names": "Nazwy kolumn odbiorców (telefon lub e-mail: nazwa)",
+    "labels.unknown_recipient": "Nieznany odbiorca",
     "editor.show_list_pickup_code": "Pokaż kod odbioru na liście",
     "editor.show_list_location": "Pokaż lokalizację na liście",
     "editor.show_list_delivery_type": "Pokaż rodzaj dostawy na liście",
@@ -212,6 +222,38 @@ class ShipmentTrackingCard extends HTMLElement {
             display: flex;
             flex-direction: column;
             gap: 16px;
+          }
+          .shipment-columns {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(var(--shipment-column-min-width, 280px), 1fr));
+            gap: 16px;
+            align-items: start;
+          }
+          .shipment-column {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            min-width: 0;
+          }
+          .shipment-column-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            font-weight: 600;
+            font-size: 1rem;
+            padding: 0 4px 6px;
+            border-bottom: 2px solid var(--primary-color);
+          }
+          .shipment-column-title {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+          }
+          .shipment-column-count {
+            font-size: 0.8rem;
+            color: var(--secondary-text-color);
+            flex-shrink: 0;
           }
           .shipment-item {
             display: flex;
@@ -559,6 +601,11 @@ class ShipmentTrackingCard extends HTMLElement {
 
   setConfig(config) {
     this.config = { ...(config || {}) };
+    this._groupByRecipient = this.config.group_by === 'recipient';
+    const recipientNames = this.config.recipient_names || {};
+    this._recipientAliases = new Map(Object.entries(recipientNames)
+      .map(([contact, name]) => [this._normalizeContact(contact), (name ?? '').toString().trim()]));
+    this._groupConfigSignature = `${this._groupByRecipient}|${JSON.stringify(recipientNames)}`;
     this._updateTitle();
     this.updateContent();
   }
@@ -1314,6 +1361,26 @@ class ShipmentTrackingCard extends HTMLElement {
     }
   }
 
+  // Phones compare by their last 9 digits (so "+48 600-100-200" == "600100200"); e-mails case-insensitively.
+  _normalizeContact(value) {
+    const text = (value ?? '').toString().trim();
+    if (!text) return '';
+    const digits = text.replace(/\D/g, '');
+    if (/^[+\d\s()-]+$/.test(text) && digits.length >= 9) return digits.slice(-9);
+    return text.toLowerCase();
+  }
+
+  _getRecipientGroup(attrs) {
+    // phone_number is the receiver's phone (InPost; Allegro once ready for pickup);
+    // otherwise fall back to the account the parcel was fetched with.
+    const contact = (attrs.phone_number || attrs.account_contact || '').toString().trim();
+    const key = this._normalizeContact(contact);
+    const aliasName = this._recipientAliases?.get(key) || '';
+    // Contacts mapped to the same name (e.g. a phone and an e-mail of one person) share a column.
+    if (aliasName) return { key: `name:${aliasName.toLowerCase()}`, name: aliasName };
+    return { key, name: contact || this._localize("labels.unknown_recipient") };
+  }
+
   updateContent() {
     if (!this.content || !this._hass) return;
 
@@ -1353,14 +1420,17 @@ class ShipmentTrackingCard extends HTMLElement {
           attrs.current_location || '',
           attrs.open_code || '',
           attrs.delivery_type || '',
-        attrs.pickup_code || ''
+        attrs.pickup_code || '',
+        attrs.phone_number || '',
+        attrs.account_contact || ''
       ].join('|'));
     });
 
     const configSignature = [
       this._isEnabled("show_list_pickup_code"),
       this._isEnabled("show_list_location"),
-      this._isEnabled("show_list_delivery_type")
+      this._isEnabled("show_list_delivery_type"),
+      this._groupConfigSignature
     ].join('|');
     const signature = `${configSignature}||${signatureParts.join('||')}`;
     if (this._lastSignature === signature) {
@@ -1369,6 +1439,8 @@ class ShipmentTrackingCard extends HTMLElement {
     }
     this._lastSignature = signature;
 
+    const groupByRecipient = this._groupByRecipient === true;
+    const groups = new Map();
     let html = '';
     const pickupCodeLabel = this._localize("labels.pickup_code");
     const pickupPointLabel = this._localize("labels.pickup_point");
@@ -1428,7 +1500,7 @@ class ShipmentTrackingCard extends HTMLElement {
              extraInfoHtml += `<div class="extra-info-text">${pickupPointLabel}: ${location}</div>`;
         }
 
-        html += `
+        const itemHtml = `
           <div class="shipment-item" data-entity-id="${entityId}">
             <div class="icon-container">
               ${iconHtml}
@@ -1453,8 +1525,34 @@ class ShipmentTrackingCard extends HTMLElement {
             </div>
           </div>
         `;
+
+        if (groupByRecipient) {
+          const { key, name } = this._getRecipientGroup(attributes);
+          let group = groups.get(key);
+          if (!group) groups.set(key, group = { name, items: [] });
+          group.items.push(itemHtml);
+        } else {
+          html += itemHtml;
+        }
       }
     });
+
+    if (groupByRecipient && groups.size > 0) {
+      // Columns sorted alphabetically, unknown recipient last; items keep the status-based order.
+      const sortedGroups = [...groups.entries()].sort(([a, ga], [b, gb]) => {
+        if (!a) return 1;
+        if (!b) return -1;
+        return ga.name.localeCompare(gb.name);
+      });
+      html = `<div class="shipment-columns">${sortedGroups.map(([, group]) => `
+        <div class="shipment-column">
+          <div class="shipment-column-header">
+            <span class="shipment-column-title">${group.name}</span>
+            <span class="shipment-column-count">${group.items.length}</span>
+          </div>
+          ${group.items.join('')}
+        </div>`).join('')}</div>`;
+    }
 
     if (html === '') {
       html = `<div class="empty-state">${this._localize("empty_state")}</div>`;
@@ -1503,6 +1601,24 @@ class ShipmentTrackingCardEditor extends HTMLElement {
         name: "title",
         label: this._localize("editor.title"),
         selector: { text: {} }
+      },
+      {
+        name: "group_by",
+        label: this._localize("editor.group_by"),
+        selector: {
+          select: {
+            mode: "dropdown",
+            options: ["none", "recipient"].map((value) => ({
+              value,
+              label: this._localize(`editor.group_by.${value}`)
+            }))
+          }
+        }
+      },
+      {
+        name: "recipient_names",
+        label: this._localize("editor.recipient_names"),
+        selector: { object: {} }
       },
       {
         name: "show_list_pickup_code",

@@ -4,6 +4,10 @@ Changes in this fork of [stirante/polish_shipment_tracking](https://github.com/s
 
 The same notes are published with each [GitHub release](https://github.com/radzio/polish_shipment_tracking/releases), which is where HACS reads them from.
 
+## Unreleased
+
+- **Card: columns per recipient.** New card option `group_by: recipient` splits shipments into columns, one per recipient: the receiver's phone number (InPost; Allegro once ready for pickup), or otherwise the account the shipment was fetched with. Optional `recipient_names` names the columns (for example `"600100200": John`); contacts with the same name share a column. Off by default, so existing cards look the same.
+
 ## 1.11.1 – 2026-11-04
 
 - **ORLEN Paczka: “ready for pickup” parcels no longer show as “unknown”.** When an ORLEN parcel reached its pick-up point or locker, its status could show as *unknown* instead of *waiting for pickup*, because ORLEN uses point/locker-specific status codes (the `*_pudo` family) that were not all in the lookup table. ORLEN now falls back to the parcel’s own Polish status description whenever the status code is not recognised, so *ready for pickup* — and the other point/locker states — are classified correctly. Also maps “not collected / expired” parcels (previously left as *unknown*) to *returned*.
