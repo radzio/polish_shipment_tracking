@@ -4,6 +4,10 @@ Changes in this fork of [stirante/polish_shipment_tracking](https://github.com/s
 
 The same notes are published with each [GitHub release](https://github.com/radzio/polish_shipment_tracking/releases), which is where HACS reads them from.
 
+## 1.11.1 – 2026-11-04
+
+- **ORLEN Paczka: “ready for pickup” parcels no longer show as “unknown”.** When an ORLEN parcel reached its pick-up point or locker, its status could show as *unknown* instead of *waiting for pickup*, because ORLEN uses point/locker-specific status codes (the `*_pudo` family) that were not all in the lookup table. ORLEN now falls back to the parcel’s own Polish status description whenever the status code is not recognised, so *ready for pickup* — and the other point/locker states — are classified correctly. Also maps “not collected / expired” parcels (previously left as *unknown*) to *returned*.
+
 ## 1.11.0 – 2026-10-31
 
 - **Expired logins now tell you.** When a courier's saved sign-in stops working (an expired or revoked token, a disabled account, an expired cookie), the account used to just go quiet — its parcels stopped updating with no warning. Home Assistant now shows a **"Reconfigure / Reauthenticate" notification and button** for the affected account, like it already did for InPost. Previously only InPost did this; every other courier failed silently.

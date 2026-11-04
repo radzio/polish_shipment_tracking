@@ -92,7 +92,14 @@ def get_raw_status(parcel_data: dict, courier: str) -> str | None:
     if courier == "ups":
         return parcel_data.get("status")
     if courier == "orlen":
-        return parcel_data.get("statusid")
+        # Primary signal is the machine status id. ORLEN keeps adding point /
+        # *_pudo variants that are not in the table, so when the id is unknown
+        # fall back to the human Polish ``statusname`` (always present), which
+        # normalize_status() classifies for ORLEN below.
+        sid = parcel_data.get("statusid")
+        if sid and str(sid).strip().upper() in _STATUS_MAP["orlen"]:
+            return sid
+        return parcel_data.get("statusname") or sid
     return None
 
 def _pick_pocztex_status(parcel_data):
@@ -176,6 +183,7 @@ _STATUS_MAP = {
         "CUSTOMERREMOTEOPENINGCOLLECTION": "delivered",
         "COLLECTED": "delivered",
         "EXPIRED": "returned",
+        "EXPIRED_PUDO": "returned",
         "RETURNED": "returned",
         "CANCELLED": "cancelled",
         "PROBLEM": "exception",
@@ -428,6 +436,36 @@ _STATUS_MAP = {
     },
 }
 
+def _normalize_orlen_pl(text):
+    """Classify an ORLEN Paczka Polish ``statusname`` to a canonical status.
+
+    Used as a fallback when the machine ``statusid`` is not in the table. Order
+    matters: terminal failures that still contain "odebr" (e.g. "nie zostala
+    odebrana" = not collected) must be caught before the plain
+    collected/delivered rule.
+    """
+    t = str(text or "").lower().translate(str.maketrans("\u0105\u0107\u0119\u0142\u0144\u00f3\u015b\u017c\u017a", "acelnoszz"))
+    if not t:
+        return "unknown"
+    if "nie" in t and "odebr" in t:
+        return "returned"
+    if any(x in t for x in ["zwrot", "odesl", "wygasl", "przetermin", "nieodebr"]):
+        return "returned"
+    if any(x in t for x in ["anulow", "rezygn"]):
+        return "cancelled"
+    if any(x in t for x in ["problem", "niedorecz", "odmow", "uszkodz", "zagin"]):
+        return "exception"
+    if any(x in t for x in ["do odbioru", "czeka na odbior", "gotowa do odbior", "oczekuje na odbior", "mozesz odebrac", "odbierz", "awizo"]):
+        return "waiting_for_pickup"
+    if any(x in t for x in ["odebrana", "odebrano", "odebrane", "dorecz", "dostarcz", "wydano", "wydana"]):
+        return "delivered"
+    if any(x in t for x in ["przygotowan", "utworzon", "oczekuje na nadanie", "do nadania", "etykiet"]):
+        return "created"
+    if any(x in t for x in ["w drodze", "sortown", "przyjeta", "przyjeto", "nadana", "nadano", "nadanie", "transport", "przekierow", "magazyn", "doreczeni"]):
+        return "in_transport"
+    return "unknown"
+
+
 def normalize_status(raw_status, courier):
     """Normalize status to one of the predefined keys."""
     status_text = str(raw_status or "").strip()
@@ -438,6 +476,10 @@ def normalize_status(raw_status, courier):
     courier_map = _STATUS_MAP.get(courier, {})
     if status_upper in courier_map:
         return courier_map[status_upper]
+
+    if courier == "orlen":
+        # raw is the Polish statusname (unmapped statusid) -> classify it.
+        return _normalize_orlen_pl(status_text)
 
     status_lower = status_text.lower()
     status_ascii = status_lower.translate(str.maketrans("ąćęłńóśżź", "acelnoszz"))
