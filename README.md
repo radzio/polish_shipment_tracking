@@ -186,6 +186,25 @@ Dokładne mapowania są w kodzie integracji (sensor.py).
 
 Integracja zawiera kartę Lovelace (JavaScript module) i automatycznie dodaje ją jako zasób w dashboardach.
 
+### Kolumny wg odbiorcy
+
+Karta może rozdzielić przesyłki na kolumny, po jednej na odbiorcę (np. osobno Twoje paczki i paczki domownika). Włączysz to w edytorze karty („Grupuj przesyłki w kolumny”) albo w YAML:
+
+```yaml
+type: custom:shipment-tracking-card
+group_by: recipient
+recipient_names:
+  "600100200": Jan
+  jan@example.com: Jan
+  "600999888": Anna
+```
+
+- `group_by`: `none` (domyślnie) albo `recipient`.
+- Odbiorca to numer telefonu odbiorcy z danych przesyłki (`phone_number`: InPost, Allegro gdy paczka czeka na odbiór). Gdy go brak, karta używa konta, z którego pobrano przesyłkę (`account_contact`).
+- `recipient_names` (opcjonalnie) nadaje kolumnom nazwy zamiast numerów i e-maili. Numery są porównywane po ostatnich 9 cyfrach (`+48 600 100 200` = `600100200`), e-maile bez względu na wielkość liter. Kontakty z tą samą nazwą trafiają do jednej kolumny.
+- Przesyłki bez telefonu i bez konta trafiają do kolumny „Nieznany odbiorca”.
+- Kolumny mają co najmniej 280 px szerokości (zmienna CSS `--shipment-column-min-width`) i na wąskiej karcie układają się jedna pod drugą. Żeby stały obok siebie, ustaw kartę na pełną szerokość albo użyj widoku Panel.
+
 ## Debugowanie
 
 Możesz włączyć debug logi dla integracji:

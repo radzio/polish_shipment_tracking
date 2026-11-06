@@ -183,6 +183,25 @@ See the implementation in the integration code (sensor.py).
 
 The integration bundles a Lovelace card (JavaScript module) and will automatically add it to Lovelace Resources.
 
+### Columns per recipient
+
+The card can split shipments into columns, one per recipient (e.g. your parcels and a household member's parcels side by side). Turn it on in the card editor ("Group shipments into columns") or in YAML:
+
+```yaml
+type: custom:shipment-tracking-card
+group_by: recipient
+recipient_names:
+  "600100200": John
+  john@example.com: John
+  "600999888": Anna
+```
+
+- `group_by`: `none` (default) or `recipient`.
+- The recipient is the receiver's phone number from the shipment data (`phone_number`: InPost, and Allegro once the parcel is ready for pickup). When it is missing, the card uses the account the shipment was fetched with (`account_contact`).
+- `recipient_names` (optional) gives columns names instead of phone numbers and e-mails. Phone numbers are compared by their last 9 digits (`+48 600 100 200` = `600100200`), e-mails case-insensitively. Contacts mapped to the same name share one column.
+- Shipments with neither a phone nor an account go to an "Unknown recipient" column.
+- Columns are at least 280 px wide (CSS variable `--shipment-column-min-width`) and stack on a narrow card. To have them side by side, give the card full width or use a Panel view.
+
 ## Debugging
 
 Enable debug logs:
