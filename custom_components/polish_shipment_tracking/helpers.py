@@ -272,6 +272,8 @@ _STATUS_MAP = {
         # SCREAMING_SNAKE, so an explicit entry here is the only coverage.
         "HANDED_OVER_FOR_DELIVERY_PUDO": "handed_out_for_delivery",
         "READY_TO_PICK_UP": "waiting_for_pickup",
+        # PUDO sibling: ready for collection AT a pickup point (vs. at the door).
+        "READY_TO_PICK_UP_PUDO": "waiting_for_pickup",
         "SELF_PICKUP": "waiting_for_pickup",
         "HARD_RESERVED": "waiting_for_pickup",
         "DELIVERED": "delivered",

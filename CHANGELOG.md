@@ -4,6 +4,14 @@ Changes in this fork of [stirante/polish_shipment_tracking](https://github.com/s
 
 The same notes are published with each [GitHub release](https://github.com/radzio/polish_shipment_tracking/releases), which is where HACS reads them from.
 
+## 1.11.3 – 2026-11-12
+
+- **DPD: pickup-point parcels that are ready for collection no longer show as "unknown".** When a DPD parcel arrived at a pickup point (Żabka etc.) and became ready to collect, it could show as *unknown* instead of *waiting for pickup*, because DPD uses a point-specific status code (`READY_TO_PICK_UP_PUDO`) that was missing from the lookup table. It is now mapped, alongside its door-delivery sibling.
+
+## 1.11.2 – 2026-11-07
+
+- **GLS parcels track again.** GLS moved its shipment-list endpoint, which made every GLS account fail to load. Updated to the new endpoint so GLS parcels update correctly again.
+
 ## 1.11.1 – 2026-11-04
 
 - **ORLEN Paczka: “ready for pickup” parcels no longer show as “unknown”.** When an ORLEN parcel reached its pick-up point or locker, its status could show as *unknown* instead of *waiting for pickup*, because ORLEN uses point/locker-specific status codes (the `*_pudo` family) that were not all in the lookup table. ORLEN now falls back to the parcel’s own Polish status description whenever the status code is not recognised, so *ready for pickup* — and the other point/locker states — are classified correctly. Also maps “not collected / expired” parcels (previously left as *unknown*) to *returned*.
