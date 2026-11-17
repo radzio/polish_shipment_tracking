@@ -243,6 +243,11 @@ class ShipmentCoordinator(DataUpdateCoordinator):
                 raise ConfigEntryAuthFailed(
                     f"{self.courier.upper()} login no longer valid, sign in again"
                 ) from err
+            # Only transient errors reach here (auth rejections were re-raised
+            # above). A token the API client rotated in-line just before this
+            # failure must still be saved, or the next restart reads the stale
+            # token and forces a needless re-authentication.
+            self._persist_auth_if_changed()
             _LOGGER.error("Error fetching data for %s: %s", self.courier, err)
             raise UpdateFailed(f"Error communicating with API: {err}")
 
@@ -995,6 +1000,22 @@ class ShipmentCoordinator(DataUpdateCoordinator):
             return
 
         self.hass.config_entries.async_update_entry(self.entry, data=new_data)
+
+    def _persist_auth_if_changed(self):
+        """Persist auth/session refreshed in-line, whatever the courier.
+
+        Dispatches to the per-courier persister. Called on the normal path and
+        again after a transient fetch failure, so a token the API client rotated
+        in-line (InPost and GLS refresh tokens rotate on every use) is saved even
+        when the fetch that followed it failed for an unrelated reason. Never
+        called on an auth rejection — that token is already dead.
+        """
+        if self.courier == "inpost":
+            self._persist_inpost_auth_if_changed()
+        elif self.courier == "gls":
+            self._persist_gls_auth_if_changed()
+        elif self.courier == "ups":
+            self._persist_ups_cookies_if_changed()
 
     def _persist_inpost_auth_if_changed(self):
         """Save InPost tokens renewed in-line by the API client.

@@ -4,6 +4,10 @@ Changes in this fork of [stirante/polish_shipment_tracking](https://github.com/s
 
 The same notes are published with each [GitHub release](https://github.com/radzio/polish_shipment_tracking/releases), which is where HACS reads them from.
 
+## 1.11.4 – 2026-11-17
+
+- **Fewer surprise “sign in again” prompts after a network blip.** For couriers whose login token is rotated on every refresh (InPost, GLS), a token that was refreshed moments before an unrelated, temporary error (a network hiccup, a brief server 5xx) was not being saved. On the next restart Home Assistant then read the old token and asked you to re-authenticate even though nothing was actually wrong. The refreshed token is now saved even when the fetch that followed it fails for a transient reason, so these needless re-auth prompts go away. (A genuinely rejected login still triggers re-authentication as before.)
+
 ## 1.11.3 – 2026-11-12
 
 - **DPD: pickup-point parcels that are ready for collection no longer show as "unknown".** When a DPD parcel arrived at a pickup point (Żabka etc.) and became ready to collect, it could show as *unknown* instead of *waiting for pickup*, because DPD uses a point-specific status code (`READY_TO_PICK_UP_PUDO`) that was missing from the lookup table. It is now mapped, alongside its door-delivery sibling.
