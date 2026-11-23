@@ -21,8 +21,15 @@ COMPONENT = Path(__file__).resolve().parents[1] / "custom_components" / "polish_
 
 
 def _load_api_gls():
-    if importlib.util.find_spec("aiohttp") is None:
-        sys.modules.setdefault("aiohttp", types.ModuleType("aiohttp"))
+    # ``api_gls`` only needs ``aiohttp`` importable (it builds requests at call
+    # time, which the test overrides). Avoid ``importlib.util.find_spec`` here:
+    # another test may have already put a spec-less stub module in
+    # ``sys.modules``, and find_spec raises ValueError on a None __spec__.
+    if "aiohttp" not in sys.modules:
+        try:
+            import aiohttp  # noqa: F401  (use the real one when installed)
+        except ModuleNotFoundError:
+            sys.modules["aiohttp"] = types.ModuleType("aiohttp")
     spec = importlib.util.spec_from_file_location("gls_api_gls", COMPONENT / "api_gls.py")
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
